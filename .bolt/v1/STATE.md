@@ -4,7 +4,7 @@
 - **Phase**: —
 - **Plan**: —
 - **Task**: —
-- **Status**: discovery_complete
+- **Status**: research_complete
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -21,4 +21,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:research` for deep technical research (Live 10 Py2.7 remote script, ahujasid fork viability, LOM device loading, spectrum-advisor import).
+Run `/bolt:roadmap` to break the project into phases.

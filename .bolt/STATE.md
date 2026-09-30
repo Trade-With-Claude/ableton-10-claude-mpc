@@ -6,7 +6,7 @@ v1
 ## Version History
 | Version | Status | Git Tag |
 |---------|--------|---------|
-| v1 | discovery_complete | — |
+| v1 | research_complete | — |
 
 ## Next Action
-Run `/bolt:research`
+Run `/bolt:roadmap`
