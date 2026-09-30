@@ -6,7 +6,7 @@ v1
 ## Version History
 | Version | Status | Git Tag |
 |---------|--------|---------|
-| v1 | initialized | — |
+| v1 | discovery_complete | — |
 
 ## Next Action
-Fill in `.bolt/v1/IDEA.md`, then run `/bolt:discover`
+Run `/bolt:research`

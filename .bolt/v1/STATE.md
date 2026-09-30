@@ -4,17 +4,21 @@
 - **Phase**: —
 - **Plan**: —
 - **Task**: —
-- **Status**: initialized
+- **Status**: discovery_complete
 
 ## Progress
 <!-- Updated after each /bolt:close -->
 
 ## Recent Decisions
 <!-- Last 3-5 decisions, older ones move to PROJECT.md -->
+- Propose → confirm → apply change policy
+- On-demand `analyze_master` tool built on spectrum-advisor
+- Fork vs. from-scratch decided in research
+- spectrum-advisor to be made public (pending)
 
 ## Blockers
 <!-- Anything preventing progress -->
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:discover` to define the project.
+Run `/bolt:research` for deep technical research (Live 10 Py2.7 remote script, ahujasid fork viability, LOM device loading, spectrum-advisor import).
