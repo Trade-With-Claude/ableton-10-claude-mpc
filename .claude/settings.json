@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": ["claude-mpc"],
+  "permissions": {
+    "allow": ["mcp__claude-mpc__ping"]
+  }
+}
