@@ -10,7 +10,7 @@ FILES = sorted(SCRIPT_DIR.glob("*.py"))
 
 
 def test_files_exist():
-    assert {f.name for f in FILES} >= {"__init__.py", "ClaudeMPC.py", "transport.py", "commands.py"}
+    assert {f.name for f in FILES} >= {"__init__.py", "ClaudeMPC.py", "transport.py", "commands.py", "lom.py"}
 
 
 VERMIN = str(pathlib.Path(sys.executable).parent / "vermin")
@@ -27,9 +27,9 @@ def test_vermin_runs_on_py27():
     _vermin(["2.7-"], FILES)
 
 
-def test_transport_is_py2_and_py3():
-    # transport.py is also unit-tested under py3
-    _vermin(["2.7-", "3.0-"], [SCRIPT_DIR / "transport.py"])
+def test_pure_modules_are_py2_and_py3():
+    # transport.py and lom.py are also unit-tested under py3
+    _vermin(["2.7-", "3.0-"], [SCRIPT_DIR / "transport.py", SCRIPT_DIR / "lom.py"])
 
 
 def test_no_threads_or_py3_idioms():
