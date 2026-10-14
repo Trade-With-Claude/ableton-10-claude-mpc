@@ -3,8 +3,8 @@
 ## Current Position
 - **Phase**: 1
 - **Plan**: created (01-01-PLAN.md)
-- **Task**: —
-- **Status**: roadmap_complete
+- **Task**: 3/3 (spikes done; MCP-tool ping pending Claude Code restart)
+- **Status**: building
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -21,4 +21,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:build 1`
+Restart Claude Code, approve claude-mpc, call the ping tool, then `/bolt:close 1`
