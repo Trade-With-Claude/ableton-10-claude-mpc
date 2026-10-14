@@ -6,7 +6,7 @@ v1
 ## Version History
 | Version | Status | Git Tag |
 |---------|--------|---------|
-| v1 | roadmap_complete | — |
+| v1 | building (phase 1 complete) | — |
 
 ## Next Action
-Run `/bolt:build 1`
+Run `/bolt:build 2`

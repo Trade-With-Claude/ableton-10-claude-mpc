@@ -5,13 +5,13 @@
 ### Phase 1: Bridge Foundation
 - **Goal**: Threadless Py2.7 Remote Script running in Live 10, talking end-to-end to a Py3.13 MCP server.
 - **Requirements**:
-  - [ ] R1: uv project with FastMCP server skeleton + pytest fake-Live socket stub
-  - [ ] R2: Remote Script with `_Framework` ControlSurface, non-blocking `select()` loop in `update_display()`, newline-JSON protocol `{id, cmd, params}`, buffered partial-write send
-  - [ ] R3: `ping` command + MCP tool; install script that copies to the User Library
-  - [ ] R4: py2.7 syntax guard (vermin or similar) in tests
-  - [ ] R5: Spikes: round-trip latency/stability; load stock FX onto master and onto a return
+  - [x] R1: uv project with FastMCP server skeleton + pytest fake-Live socket stub
+  - [x] R2: Remote Script with `_Framework` ControlSurface, non-blocking `select()` loop in `update_display()`, newline-JSON protocol `{id, cmd, params}`, buffered partial-write send
+  - [x] R3: `ping` command + MCP tool; install script that copies to the User Library
+  - [x] R4: py2.7 syntax guard (vermin or similar) in tests
+  - [x] R5: Spikes: round-trip latency/stability; load stock FX onto master and onto a return
 - **Success Criteria**: `ping` from Claude Code returns from real Live 10 in ~200 ms, Live UI stays smooth, spike results documented.
-- **Status**: pending
+- **Status**: complete
 
 ### Phase 2: Session Read
 - **Goal**: Claude can see the whole session.
