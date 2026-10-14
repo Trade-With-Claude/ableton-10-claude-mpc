@@ -7,7 +7,7 @@ import pathlib
 import pytest
 
 from claude_mpc import server
-from claude_mpc.protocol import LiveError
+from mcp.server.mcpserver.exceptions import ToolError
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +44,7 @@ def test_get_device_params_master():
 
 
 def test_bad_address_is_tool_error():
-    with pytest.raises(LiveError, match="no return track 7"):
+    with pytest.raises(ToolError, match="no return track 7"):
         run(server.get_device_params("return", 7, [0]))
 
 
@@ -56,7 +56,7 @@ def test_get_meters_peak_hold():
     assert "MIDI only" not in [m["name"] for m in r["meters"]]
 
 
-READ_TOOLS = {"ping", "get_session", "get_device_params", "get_meters"}
+READ_TOOLS = {"ping", "get_session", "get_device_params", "get_meters", "analyze_master"}
 WRITE_TOOLS = {"apply", "set_mixer", "set_device_param", "load_effect", "delete_device"}
 
 
@@ -106,7 +106,7 @@ def test_apply_batch_is_one_undo_step(fake_live):
 
 
 def test_invalid_batch_changes_nothing(fake_live):
-    with pytest.raises(LiveError, match="op 1: .*no param 'Knee'"):
+    with pytest.raises(ToolError, match="op 1: .*no param 'Knee'"):
         run(server.apply([
             {"op": "mixer", "kind": "track", "index": 0, "volume_db": -3},
             {"op": "param", "kind": "track", "index": 0, "path": [0], "param": "Knee", "display": 1},

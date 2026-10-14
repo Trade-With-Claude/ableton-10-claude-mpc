@@ -5,9 +5,11 @@ import os
 import time
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
+from . import analysis
 from .client import LiveClient
-from .protocol import DEFAULT_PORT
+from .protocol import DEFAULT_PORT, LiveError
 
 mcp = MCPServer("claude-mpc")
 live = LiveClient(port=int(os.environ.get("CLAUDE_MPC_PORT", DEFAULT_PORT)))
@@ -20,7 +22,16 @@ METER_NOTE = (
 
 
 async def _call(cmd: str, params: dict | None = None):
-    return await asyncio.to_thread(live.request, cmd, params)
+    # ToolError, so the message reaches Claude (any other exception shows as a bare
+    # "Error executing tool <name>").
+    try:
+        return await asyncio.to_thread(live.request, cmd, params)
+    except LiveError as exc:
+        raise ToolError(str(exc)) from exc
+    except OSError as exc:
+        raise ToolError(
+            f"Cannot reach Live ({exc}). Is Live open with ClaudeMPC selected as a Control Surface?"
+        ) from exc
 
 
 @mcp.tool()
@@ -83,6 +94,32 @@ async def get_meters(reads: int = 10, interval_ms: int = 100) -> dict:
             p["peak_left"] = max(p["peak_left"], m["left"])
             p["peak_right"] = max(p["peak_right"], m["right"])
     return {"reads": reads, "note": METER_NOTE, "meters": list(peaks.values())}
+
+
+@mcp.tool()
+async def analyze_master(seconds: int = 15, reference: str | None = None) -> dict:
+    """Listen to the Live master: record `seconds` (10-60, default 15) from BlackHole 2ch and analyze.
+
+    The user must already be playing the section (e.g. a drop on loop) BEFORE you call;
+    the call blocks for `seconds` + ~2 s. Requires Live's output on BlackHole 2ch at 48 kHz.
+    Returns loudness (LUFS-I over the capture, LUFS-S = last 3 s, true peak, PLR, crest;
+    LRA needs >= 30 s), band zones in dB relative to total energy (sub 20-60, low 60-250,
+    low_mid 250-500, mid 500-2k, high_mid 2-6k, air 6k-20k) plus 31 third-octave bands,
+    stereo (correlation, side fraction, low-end mono compatibility, mono LUFS delta),
+    drum punch per element, pump score (0-10, advisory), translation and diagnoses.
+    `reference` = path to a reference track; else spectrum-advisor's last used one; else
+    none. Spectrum diagnoses (`reference.zone_deviation_db`, LUFS-matched) need a
+    reference; without one only DnB absolute targets apply (mix bus -5/-6 LUFS-S, master
+    -4 LUFS-I). Explain results in DnB mixing terms and propose concrete changes.
+    """
+    try:
+        bpm = float((await _call("ping"))["tempo"])
+    except ToolError:
+        bpm = analysis.DEFAULT_BPM
+    try:
+        return await asyncio.to_thread(analysis.run, seconds, reference, bpm)
+    except analysis.AnalysisError as exc:
+        raise ToolError(str(exc)) from exc
 
 
 # -- writes: every tool runs through `apply`, so each call is one Cmd+Z in Live --------
