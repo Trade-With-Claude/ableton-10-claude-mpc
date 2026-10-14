@@ -18,7 +18,7 @@ Setup: macOS 15, Apple Silicon M4, Live 10.1.43, ClaudeMPC selected in one Contr
 
 ## 2. Loading a stock effect onto master / return
 
-`uv run python scripts/spike_latency.py load master` / `load return 0` (command `spike_load_effect`):, Utility via `browser.audio_effects`,
+`uv run python scripts/spike_latency.py load master` / `load return 0` (command `spike_load_effect`): Utility via `browser.audio_effects`,
 `hotswap_target = None`, `track.view.device_insert_mode = selected_right`, then `browser.load_item`.
 
 | Target | Loaded | Placement | Selection restored | Elapsed |
