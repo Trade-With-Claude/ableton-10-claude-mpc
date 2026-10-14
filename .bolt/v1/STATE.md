@@ -3,8 +3,8 @@
 ## Current Position
 - **Phase**: 2
 - **Plan**: created (02-01-PLAN.md)
-- **Task**: —
-- **Status**: planned
+- **Task**: 2/3 (Task 3 = Live UAT, waiting on Dorian)
+- **Status**: building
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -23,4 +23,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:build 2`
+Re-select ClaudeMPC in Live + restart Claude Code, open a DnB session, then continue `/bolt:build 2` Task 3 (UAT)

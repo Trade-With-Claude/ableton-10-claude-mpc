@@ -14,7 +14,8 @@ live = LiveClient(port=int(os.environ.get("CLAUDE_MPC_PORT", DEFAULT_PORT)))
 
 METER_NOTE = (
     "Values are Live's raw output-meter scale (0-1, peak-ish, not dBFS or LUFS); "
-    "peaks are the max over all reads. Use analyze_master for loudness."
+    "peaks are the max over all reads. Tracks inside a folded group read 0.0 (Live stops "
+    "metering them); unfold groups for per-track values. Use analyze_master for loudness."
 )
 
 
@@ -68,6 +69,7 @@ async def get_meters(reads: int = 10, interval_ms: int = 100) -> dict:
 
     Takes `reads` one-shot meter readings `interval_ms` apart (default ~1 s window) and
     keeps the max per channel. Useful to spot clipping or hot tracks; not a loudness measure.
+    Tracks inside a folded group always read 0.0, so ask the user to unfold groups first.
     """
     reads = max(1, min(int(reads), 100))
     peaks: dict[tuple, dict] = {}
