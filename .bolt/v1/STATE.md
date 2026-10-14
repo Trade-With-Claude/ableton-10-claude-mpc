@@ -3,8 +3,8 @@
 ## Current Position
 - **Phase**: 4
 - **Plan**: created (04-01-PLAN.md)
-- **Task**: 0/3
-- **Status**: planned
+- **Task**: 2/3 (Task 3 = Live UAT, waiting on Dorian)
+- **Status**: building
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -25,4 +25,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:build 4`
+Set Live output → BlackHole 2ch @ 48 kHz, restart Claude Code, `/bolt:resume`, play a drop, then continue `/bolt:build 4` Task 3 (UAT)
