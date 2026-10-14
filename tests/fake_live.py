@@ -1,8 +1,15 @@
 """Fake Live Remote Script: speaks the wire protocol over a real socket."""
 
 import json
+import pathlib
 import socket
+import sys
 import threading
+
+from fake_lom import dnb_song
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "remote_script" / "ClaudeMPC"))
+import lom  # noqa: E402
 
 
 class FakeLive:
@@ -11,7 +18,12 @@ class FakeLive:
         self.handlers = {
             "ping": lambda p: {"live_version": "10.1.43", "tempo": 174.0, "script_version": "fake"},
             "echo": lambda p: p,
+            "get_session": lambda p: lom.serialize_session(self.song),
+            "get_device_params": self._device_params,
+            "get_meters": self._meters,
         }
+        self.song = dnb_song()
+        self.meter_reads = 0
         self._srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._srv.bind(("127.0.0.1", 0))
@@ -21,6 +33,20 @@ class FakeLive:
         self._stop = False
         self._thread = threading.Thread(target=self._serve, daemon=True)
         self._thread.start()
+
+    def _device_params(self, p):
+        track = lom.resolve_track(self.song, p["kind"], p.get("index", 0))
+        device = lom.resolve_device(track, p.get("path"))
+        return {"track": track.name, "device": lom.serialize_device(device, p.get("path")),
+                "params": lom.serialize_params(device, p.get("query"))}
+
+    def _meters(self, p):
+        # master peaks on the 2nd read only, to exercise peak-hold
+        self.meter_reads += 1
+        out = lom.read_meters(self.song)
+        if self.meter_reads == 2:
+            out[-1]["left"] = 1.0
+        return out
 
     def _send(self, conn, data: bytes) -> None:
         if not self.chunk_size:
@@ -50,7 +76,10 @@ class FakeLive:
                     if h is None:
                         resp = {"id": req["id"], "ok": False, "error": "unknown command: " + req["cmd"]}
                     else:
-                        resp = {"id": req["id"], "ok": True, "result": h(req.get("params", {}))}
+                        try:
+                            resp = {"id": req["id"], "ok": True, "result": h(req.get("params", {}))}
+                        except Exception as e:
+                            resp = {"id": req["id"], "ok": False, "error": f"{type(e).__name__}: {e}"}
                     self._send(conn, (json.dumps(resp) + "\n").encode())
 
     def _serve(self) -> None:

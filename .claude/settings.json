@@ -1,6 +1,13 @@
 {
-  "enabledMcpjsonServers": ["claude-mpc"],
+  "enabledMcpjsonServers": [
+    "claude-mpc"
+  ],
   "permissions": {
-    "allow": ["mcp__claude-mpc__ping"]
+    "allow": [
+      "mcp__claude-mpc__ping",
+      "mcp__claude-mpc__get_session",
+      "mcp__claude-mpc__get_device_params",
+      "mcp__claude-mpc__get_meters"
+    ]
   }
 }

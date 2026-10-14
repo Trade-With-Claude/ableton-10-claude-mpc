@@ -2,9 +2,13 @@
 """Command handlers. Run on Live's main thread from update_display()."""
 from __future__ import absolute_import
 
+import time
+
 import Live
 
-SCRIPT_VERSION = "0.1.0"
+from . import lom
+
+SCRIPT_VERSION = "0.2.0"
 
 
 class Commands(object):
@@ -13,6 +17,9 @@ class Commands(object):
         self._effects_cache = None
         self.table = {
             "ping": self.ping,
+            "get_session": self.get_session,
+            "get_device_params": self.get_device_params,
+            "get_meters": self.get_meters,
             "spike_load_effect": self.spike_load_effect,
         }
 
@@ -39,6 +46,24 @@ class Commands(object):
             "tempo": self.song.tempo,
             "script_version": SCRIPT_VERSION,
         }
+
+    def get_session(self):
+        t0 = time.time()
+        result = lom.serialize_session(self.song)
+        result["elapsed_ms"] = round((time.time() - t0) * 1000, 1)
+        return result
+
+    def get_device_params(self, kind, index=0, path=None, query=None):
+        track = lom.resolve_track(self.song, kind, index)
+        device = lom.resolve_device(track, path)
+        return {
+            "track": lom._text(track.name),
+            "device": lom.serialize_device(device, path if isinstance(path, list) else [path]),
+            "params": lom.serialize_params(device, query),
+        }
+
+    def get_meters(self):
+        return lom.read_meters(self.song)
 
     def spike_load_effect(self, target="master", index=0, name="Utility"):
         """DEV ONLY (Phase 1 spike): load a stock audio effect onto master/return/track."""
