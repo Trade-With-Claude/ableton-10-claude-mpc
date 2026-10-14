@@ -7,20 +7,21 @@ import time
 import Live
 
 from . import lom
+from . import ops as batch
 
-SCRIPT_VERSION = "0.2.0"
+SCRIPT_VERSION = "0.3.0"
 
 
 class Commands(object):
     def __init__(self, surface):
         self.surface = surface
-        self._effects_cache = None
+        self.loader = EffectLoader(self)
         self.table = {
             "ping": self.ping,
             "get_session": self.get_session,
             "get_device_params": self.get_device_params,
             "get_meters": self.get_meters,
-            "spike_load_effect": self.spike_load_effect,
+            "apply": self.apply,
         }
 
     @property
@@ -65,59 +66,79 @@ class Commands(object):
     def get_meters(self):
         return lom.read_meters(self.song)
 
-    def spike_load_effect(self, target="master", index=0, name="Utility"):
-        """DEV ONLY (Phase 1 spike): load a stock audio effect onto master/return/track."""
-        song = self.song
-        if target == "master":
-            track = song.master_track
-        elif target == "return":
-            track = song.return_tracks[int(index)]
-        elif target == "track":
-            track = song.tracks[int(index)]
-        else:
-            raise ValueError(u"target must be master|return|track")
+    def apply(self, ops):
+        t0 = time.time()
+        result = batch.apply(self.song, ops, self.loader)
+        result["elapsed_ms"] = round((time.time() - t0) * 1000, 1)
+        return result
 
-        item = self._find_effect(name)
-        if item is None:
-            raise LookupError(u"stock effect not found in browser: %s" % name)
 
-        report = {"target": target, "index": index, "effect": unicode(item.name)}
-        before = len(track.devices)
-        prev_selected = song.view.selected_track
-        browser = self.app.browser
-        insert_mode_set = False
-        try:
-            song.view.selected_track = track
-            browser.hotswap_target = None
-            try:
-                track.view.device_insert_mode = Live.Track.DeviceInsertMode.selected_right
-                insert_mode_set = True
-            except Exception as e:
-                report["insert_mode_error"] = unicode(e)
-            browser.load_item(item)
-        finally:
-            if insert_mode_set:
-                try:
-                    track.view.device_insert_mode = Live.Track.DeviceInsertMode.default
-                except Exception:
-                    pass
-            song.view.selected_track = prev_selected
+class EffectLoader(object):
+    """Loads stock audio effects through Live's browser (the `loader` ops.py expects).
 
-        report["devices_before"] = before
-        report["devices_after"] = len(track.devices)
-        report["device_names"] = [unicode(d.name) for d in track.devices]
-        report["selection_restored"] = song.view.selected_track == prev_selected
-        report["loaded"] = report["devices_after"] > before
-        return report
+    `browser.load_item` loads onto the selected track, next to the selected device, so:
+    select the target track and its neighbour device, clear hotswap, set the insert
+    mode, load, then restore the user's track/device selection and the insert mode.
+    """
 
-    # -- helpers -----------------------------------------------------------
-    def _find_effect(self, name):
-        if self._effects_cache is None:
+    def __init__(self, commands):
+        self.commands = commands
+        self._cache = None
+
+    def _find(self, name):
+        if self._cache is None:
             cache = {}
-            for child in self.app.browser.audio_effects.children:
+            for child in self.commands.app.browser.audio_effects.children:
                 cache[unicode(child.name).lower()] = child
-            self._effects_cache = cache
-        item = self._effects_cache.get(unicode(name).lower())
+            self._cache = cache
+        item = self._cache.get(unicode(name).lower())
         if item is not None and item.is_loadable:
             return item
         return None
+
+    def check(self, name):
+        if self._find(name) is None:
+            raise LookupError(u"stock effect not found in browser: %s (have: %s)"
+                              % (name, u", ".join(sorted(self._cache or {}))))
+
+    def load(self, track, name, position=None):
+        song = self.commands.song
+        item = self._find(name)
+        if item is None:
+            raise LookupError(u"stock effect not found in browser: %s" % name)
+        before = list(track.devices)
+        modes = Live.Track.DeviceInsertMode
+        mode = modes.default
+        neighbour = None
+        if before:
+            if position is None or position >= len(before):
+                neighbour, mode = before[-1], modes.selected_right
+            elif position == 0:
+                neighbour, mode = before[0], modes.selected_left
+            else:
+                neighbour, mode = before[position - 1], modes.selected_right
+        prev_track = song.view.selected_track
+        prev_device = prev_track.view.selected_device if prev_track is not None else None
+        browser = self.commands.app.browser
+        try:
+            song.view.selected_track = track
+            if neighbour is not None:
+                song.view.select_device(neighbour)
+            browser.hotswap_target = None
+            track.view.device_insert_mode = mode
+            browser.load_item(item)
+        finally:
+            try:
+                track.view.device_insert_mode = modes.default
+            except Exception:
+                pass
+            song.view.selected_track = prev_track
+            if prev_device is not None:
+                try:
+                    song.view.select_device(prev_device)
+                except Exception:
+                    pass
+        new = [d for d in track.devices if d not in before]
+        if not new:
+            raise RuntimeError(u"load_item did not add %s to %s" % (name, unicode(track.name)))
+        return new[0]

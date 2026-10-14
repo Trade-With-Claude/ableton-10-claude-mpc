@@ -1,6 +1,8 @@
 """MCP tool functions end to end against FakeLive (which serializes a fake LOM via lom.py)."""
 
 import asyncio
+import json
+import pathlib
 
 import pytest
 
@@ -54,6 +56,60 @@ def test_get_meters_peak_hold():
     assert "MIDI only" not in [m["name"] for m in r["meters"]]
 
 
+READ_TOOLS = {"ping", "get_session", "get_device_params", "get_meters"}
+WRITE_TOOLS = {"apply", "set_mixer", "set_device_param", "load_effect", "delete_device"}
+
+
 def test_tools_registered():
     names = {t.name for t in run(server.mcp.list_tools())}
-    assert {"ping", "get_session", "get_device_params", "get_meters"} <= names
+    assert READ_TOOLS | WRITE_TOOLS <= names
+
+
+def test_only_read_tools_are_allowlisted():
+    root = pathlib.Path(__file__).parent.parent
+    allow = json.loads((root / ".claude" / "settings.json").read_text())["permissions"]["allow"]
+    assert {a.removeprefix("mcp__claude-mpc__") for a in allow} == READ_TOOLS
+
+
+def test_set_mixer(fake_live):
+    r = run(server.set_mixer("track", 1, volume_db=-6, pan="25L", sends={"B": -12}, mute=True))
+    assert r["applied"] == r["total"] == 4
+    assert [(c["what"], c["after"]) for c in r["results"][0]["changes"]] == [
+        ("volume", "-6.0 dB"), ("pan", "25L"), ("send B-Delay", "-12.0 dB"), ("mute", "on")]
+    assert fake_live.song.tracks[1].mute is True
+    assert (fake_live.song.undo_begins, fake_live.song.undo_ends) == (1, 1)
+
+
+def test_set_device_param_by_name_and_item():
+    r = run(server.set_device_param("track", 0, [0], "S/C EQ Type", display="Low pass"))
+    assert r["results"][0]["changes"][0] == {
+        "what": "Glue Compressor: S/C EQ Type", "before": "Low Shelf", "after": "Low pass"}
+    r = run(server.set_device_param("track", 3, [1, 1, 0], "drive", value=99))
+    assert r["results"][0]["changes"][0]["after"] == "36.0 dB"  # clamped
+
+
+def test_load_and_delete_effect(fake_live):
+    r = run(server.load_effect("master", 0, "Utility"))
+    assert r["results"][0]["changes"][0]["after"] == "Utility at [1]"
+    r = run(server.delete_device("master", 0, [1]))
+    assert [d.name for d in fake_live.song.master_track.devices] == ["Limiter"]
+
+
+def test_apply_batch_is_one_undo_step(fake_live):
+    r = run(server.apply([
+        {"op": "mixer", "kind": "track", "index": 0, "volume_db": -3, "sends": {"A-Reverb": -20}},
+        {"op": "param", "kind": "track", "index": 0, "path": [0], "param": "Threshold", "display": -10},
+        {"op": "load_effect", "kind": "track", "index": 0, "name": "EQ Eight"},
+    ]))
+    assert r["applied"] == r["total"] == 4 and "error" not in r
+    assert (fake_live.song.undo_begins, fake_live.song.undo_ends) == (1, 1)
+
+
+def test_invalid_batch_changes_nothing(fake_live):
+    with pytest.raises(LiveError, match="op 1: .*no param 'Knee'"):
+        run(server.apply([
+            {"op": "mixer", "kind": "track", "index": 0, "volume_db": -3},
+            {"op": "param", "kind": "track", "index": 0, "path": [0], "param": "Knee", "display": 1},
+        ]))
+    vol = fake_live.song.tracks[0].mixer_device.volume
+    assert vol.str_for_value(vol.value) == "0.0 dB" and fake_live.song.undo_begins == 0

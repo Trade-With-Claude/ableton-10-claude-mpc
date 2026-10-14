@@ -9,28 +9,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "remote_script" / 
 import lom  # noqa: E402
 import ops  # noqa: E402
 
-from fake_lom import Device, dnb_song  # noqa: E402
-
-
-class FakeLoader:
-    STOCK = {"eq eight": "Eq8", "utility": "StereoGain", "glue compressor": "GlueCompressor"}
-
-    def __init__(self, fail=False):
-        self.fail = fail
-        self.loads = []
-
-    def check(self, name):
-        if name.lower() not in self.STOCK:
-            raise LookupError("stock effect not found in browser: %s" % name)
-
-    def load(self, track, name, position):
-        if self.fail:
-            raise RuntimeError("browser exploded")
-        dev = Device(name, self.STOCK[name.lower()])
-        pos = len(track.devices) if position is None else position
-        track.devices.insert(pos, dev)
-        self.loads.append((track.name, name, pos))
-        return dev
+from fake_lom import FakeLoader, dnb_song  # noqa: E402
 
 
 @pytest.fixture

@@ -85,6 +85,90 @@ async def get_meters(reads: int = 10, interval_ms: int = 100) -> dict:
     return {"reads": reads, "note": METER_NOTE, "meters": list(peaks.values())}
 
 
+# -- writes: every tool runs through `apply`, so each call is one Cmd+Z in Live --------
+WRITE_POLICY = """
+Before calling, tell the user exactly what will change and why (propose -> confirm);
+the user approves the tool call. Values are given in Live's display units and clamped
+to range. The result lists each change with its before/after display; if a change
+fails mid-batch the result has `error` and `applied` < `total` (Cmd+Z reverts the rest).
+"""
+
+
+async def _apply(ops: list[dict]) -> dict:
+    return await _call("apply", {"ops": ops})
+
+
+def _op(op: str, kind: str, index: int, **fields) -> dict:
+    return {"op": op, "kind": kind, "index": index,
+            **{k: v for k, v in fields.items() if v is not None}}
+
+
+@mcp.tool(description="""Apply several changes as ONE undo step (one Cmd+Z reverts the batch).
+
+`ops` is a list of operations, each addressed by kind ("track"|"return"|"master") and index:
+  {"op": "mixer", "kind", "index", "volume_db": -6, "pan": "25L"|-25, "sends": {"A-Reverb": -20}, "mute": true, "solo": false}
+  {"op": "param", "kind", "index", "path": [0], "param": "Threshold"|3, "display": -12 | "High pass" | "on"}  (or "value": raw)
+  {"op": "load_effect", "kind", "index", "name": "EQ Eight", "position": null (end) | n}
+  {"op": "delete_device", "kind", "index", "path": [1]}
+All ops are validated before anything is written: one bad op means nothing changes.
+""" + WRITE_POLICY)
+async def apply(ops: list[dict]) -> dict:
+    return await _apply(ops)
+
+
+@mcp.tool(description="""Set mixer controls on one track, return or master (one undo step).
+
+volume_db in dB ("-inf" allowed, max +6), pan as -50..50 or "25L"/"C"/"10R", sends as
+{return name | letter | index: dB}, mute/solo as booleans. Master has volume/pan only.
+""" + WRITE_POLICY)
+async def set_mixer(
+    kind: str,
+    index: int,
+    volume_db: float | str | None = None,
+    pan: float | str | None = None,
+    sends: dict[str, float | str] | None = None,
+    mute: bool | None = None,
+    solo: bool | None = None,
+) -> dict:
+    return await _apply([_op("mixer", kind, index, volume_db=volume_db, pan=pan, sends=sends,
+                             mute=mute, solo=solo)])
+
+
+@mcp.tool(description="""Set one device parameter (one undo step).
+
+Address the device as in get_device_params (kind, index, device_path). `param` is a name
+(case-insensitive exact, else unique substring) or an index. Give `display` in the units
+get_device_params shows (-12 for dB, 200 or "1.2 kHz", "30 %", an item name like
+"High pass", "on"/"off") or a raw `value` within min..max.
+""" + WRITE_POLICY)
+async def set_device_param(
+    kind: str,
+    index: int,
+    device_path: list[int],
+    param: str | int,
+    display: float | str | None = None,
+    value: float | None = None,
+) -> dict:
+    return await _apply([_op("param", kind, index, path=device_path, param=param,
+                             display=display, value=value)])
+
+
+@mcp.tool(description="""Load a stock Ableton audio effect (e.g. "EQ Eight", "Glue Compressor",
+"Utility", "Saturator", "Limiter") onto a track, return or master (one undo step).
+
+`position` = device index to insert at; omit to append at the end of the chain.
+Third-party plugins cannot be loaded. The user's track/device selection is restored.
+""" + WRITE_POLICY)
+async def load_effect(kind: str, index: int, name: str, position: int | None = None) -> dict:
+    return await _apply([_op("load_effect", kind, index, name=name, position=position)])
+
+
+@mcp.tool(description="""Delete one device (also inside racks via its path) (one undo step).
+""" + WRITE_POLICY)
+async def delete_device(kind: str, index: int, device_path: list[int]) -> dict:
+    return await _apply([_op("delete_device", kind, index, path=device_path)])
+
+
 def main() -> None:
     mcp.run()
 

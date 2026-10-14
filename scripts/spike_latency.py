@@ -1,8 +1,6 @@
-"""Phase 1 spikes against a running Live 10 with the ClaudeMPC surface selected.
+"""Latency spike against a running Live 10 with the ClaudeMPC surface selected.
 
   uv run python scripts/spike_latency.py ping [-n 100]
-  uv run python scripts/spike_latency.py load master
-  uv run python scripts/spike_latency.py load return 0
 """
 
 import argparse
@@ -43,21 +41,11 @@ def main() -> None:
     sub = ap.add_subparsers(dest="mode", required=True)
     p = sub.add_parser("ping")
     p.add_argument("-n", type=int, default=100)
-    ld = sub.add_parser("load")
-    ld.add_argument("target", choices=["master", "return", "track"])
-    ld.add_argument("index", type=int, nargs="?", default=0)
-    ld.add_argument("--name", default="Utility")
     args = ap.parse_args()
 
     c = LiveClient(port=args.port, timeout=10)
     try:
-        if args.mode == "ping":
-            ping_burst(c, args.n)
-        else:
-            t0 = time.perf_counter()
-            r = c.request("spike_load_effect", {"target": args.target, "index": args.index, "name": args.name})
-            r["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
-            print(json.dumps(r, indent=2, ensure_ascii=False))
+        ping_burst(c, args.n)
     finally:
         c.close()
 

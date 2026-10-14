@@ -141,6 +141,27 @@ class Song:
         self.undo_ends += 1
 
 
+class FakeLoader:
+    STOCK = {"eq eight": "Eq8", "utility": "StereoGain", "glue compressor": "GlueCompressor"}
+
+    def __init__(self, fail=False):
+        self.fail = fail
+        self.loads = []
+
+    def check(self, name):
+        if name.lower() not in self.STOCK:
+            raise LookupError("stock effect not found in browser: %s" % name)
+
+    def load(self, track, name, position):
+        if self.fail:
+            raise RuntimeError("browser exploded")
+        dev = Device(name, self.STOCK[name.lower()])
+        pos = len(track.devices) if position is None else position
+        track.devices.insert(pos, dev)
+        self.loads.append((track.name, name, pos))
+        return dev
+
+
 def dnb_song():
     """Group 'DRUMS' (Kick, Snare) + 'Bässe ✦ Sub', 2 returns, master with Glue + plugin."""
     drums = Track("DRUMS", foldable=True, sends=(-70.0, -70.0),

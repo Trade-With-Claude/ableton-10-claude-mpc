@@ -6,10 +6,11 @@ import socket
 import sys
 import threading
 
-from fake_lom import dnb_song
+from fake_lom import FakeLoader, dnb_song
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "remote_script" / "ClaudeMPC"))
 import lom  # noqa: E402
+import ops  # noqa: E402
 
 
 class FakeLive:
@@ -21,8 +22,10 @@ class FakeLive:
             "get_session": lambda p: lom.serialize_session(self.song),
             "get_device_params": self._device_params,
             "get_meters": self._meters,
+            "apply": lambda p: ops.apply(self.song, p["ops"], self.loader),
         }
         self.song = dnb_song()
+        self.loader = FakeLoader()
         self.meter_reads = 0
         self._srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
