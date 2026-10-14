@@ -2,9 +2,9 @@
 
 ## Current Position
 - **Phase**: 4
-- **Plan**: not created
-- **Task**: —
-- **Status**: ready to plan
+- **Plan**: created (04-01-PLAN.md)
+- **Task**: 0/3
+- **Status**: planned
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -25,4 +25,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:plan 4`
+Run `/bolt:build 4`
