@@ -16,12 +16,12 @@
 ### Phase 2: Session Read
 - **Goal**: Claude can see the whole session.
 - **Requirements**:
-  - [ ] R1: `get_session`: tracks, groups (fold/group_track), returns, master, mixer state, device list
-  - [ ] R2: `get_device_params`: value/min/max/quantized/`str_for_value` (stock + 3rd-party)
-  - [ ] R3: `get_meters`: one-shot output peak L/R per track
-  - [ ] R4: Unicode-safe serializers + kind/index addressing
+  - [x] R1: `get_session`: tracks, groups (fold/group_track), returns, master, mixer state, device list
+  - [x] R2: `get_device_params`: value/min/max/quantized/`str_for_value` (stock + 3rd-party)
+  - [x] R3: `get_meters`: one-shot output peak L/R per track
+  - [x] R4: Unicode-safe serializers + kind/index addressing
 - **Success Criteria**: Claude accurately describes one of Dorian's real DnB sessions: bus structure and all device params.
-- **Status**: pending
+- **Status**: complete
 
 ### Phase 3: Mixer & Device Control
 - **Goal**: Claude changes the mix, and every change can be undone.
