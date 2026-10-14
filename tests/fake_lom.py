@@ -1,16 +1,28 @@
-"""Duck-typed fakes of the Live 10 Object Model, enough for lom.py."""
+"""Duck-typed fakes of the Live 10 Object Model, enough for lom.py and ops.py."""
+
+import math
 
 
 class Param:
     def __init__(self, name, value, lo=0.0, hi=1.0, quantized=False, items=(), fmt=None):
         self.name = name
-        self.value = value
+        self._value = value
         self.min = lo
         self.max = hi
         self.is_quantized = quantized
         self.value_items = list(items)
         self.is_enabled = True
         self._fmt = fmt or (lambda v: "%.2f" % v)
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        if not self.min <= v <= self.max:  # Live raises on out-of-range writes
+            raise ValueError("value %r out of range [%r, %r]" % (v, self.min, self.max))
+        self._value = v
 
     def str_for_value(self, v):
         if self.is_quantized and self.value_items:
@@ -23,6 +35,33 @@ class Param:
 
 def db(v):
     return "%.1f dB" % v
+
+
+# Live's mixer params are normalized 0-1 with a non-linear dB display:
+# volume 0.85 = 0 dB, 1.0 = +6 dB; sends 1.0 = 0 dB; pan -1..1 shown as 50L..C..50R.
+def vol_fmt(v):
+    if v <= 0:
+        return "-inf dB"
+    if v >= 0.85:
+        return "%.1f dB" % (6.0 * (v - 0.85) / 0.15)
+    return "%.1f dB" % (40.0 * math.log10(v / 0.85))
+
+
+def vol_value(dbv):
+    return 0.85 + dbv * 0.15 / 6.0 if dbv >= 0 else 0.85 * 10 ** (dbv / 40.0)
+
+
+def send_fmt(v):
+    return "-inf dB" if v <= 0 else "%.1f dB" % (40.0 * math.log10(v))
+
+
+def send_value(dbv):
+    return 0.0 if dbv <= -70 else 10 ** (dbv / 40.0)
+
+
+def pan_fmt(v):
+    n = int(round(abs(v) * 50))
+    return "C" if n == 0 else "%d%s" % (n, "L" if v < 0 else "R")
 
 
 def on_param(on=True):
@@ -39,7 +78,14 @@ class Device:
         self.chains = chains or []
 
 
-class Chain:
+class DeviceList:
+    """`devices` + `delete_device(i)`, shared by Track and Chain."""
+
+    def delete_device(self, i):
+        del self.devices[i]
+
+
+class Chain(DeviceList):
     def __init__(self, name, devices=(), mute=False, solo=False):
         self.name = name
         self.devices = list(devices)
@@ -49,9 +95,9 @@ class Chain:
 
 class Mixer:
     def __init__(self, vol_db=0.0, pan=0.0, sends=()):
-        self.volume = Param("Track Volume", vol_db, -70.0, 6.0, fmt=db)
-        self.panning = Param("Track Panning", pan, -1.0, 1.0)
-        self.sends = [Param("Send", v, -70.0, 0.0, fmt=db) for v in sends]
+        self.volume = Param("Track Volume", vol_value(vol_db), 0.0, 1.0, fmt=vol_fmt)
+        self.panning = Param("Track Panning", pan, -1.0, 1.0, fmt=pan_fmt)
+        self.sends = [Param("Send", send_value(v), 0.0, 1.0, fmt=send_fmt) for v in sends]
 
 
 class Routing:
@@ -59,7 +105,7 @@ class Routing:
         self.display_name = name
 
 
-class Track:
+class Track(DeviceList):
     def __init__(self, name, devices=(), sends=(), midi=False, foldable=False, group=None,
                  output="Master", meters=(0.5, 0.4), audio_out=True, armable=True):
         self.name = name
@@ -85,6 +131,14 @@ class Song:
         self.return_tracks = returns
         self.master_track = master
         self.tempo = tempo
+        self.undo_begins = 0
+        self.undo_ends = 0
+
+    def begin_undo_step(self):
+        self.undo_begins += 1
+
+    def end_undo_step(self):
+        self.undo_ends += 1
 
 
 def dnb_song():
@@ -92,7 +146,12 @@ def dnb_song():
     drums = Track("DRUMS", foldable=True, sends=(-70.0, -70.0),
                   devices=[Device("Glue Compressor", "GlueCompressor",
                                   [Param("Threshold", -12.0, -40.0, 0.0, fmt=db),
-                                   Param("Ratio", 1, quantized=True, items=["2", "4", "10"])])])
+                                   Param("Ratio", 1, quantized=True, items=["2", "4", "10"]),
+                                   Param("S/C EQ Type", 0, 0, 5, quantized=True,
+                                         items=["Low Shelf", "Bell", "High Shelf", "Low pass", "Peak", "High pass"]),
+                                   Param("S/C EQ Freq", 0.3, fmt=lambda v: "%.0f Hz" % (20 * 1000 ** v)
+                                         if 20 * 1000 ** v < 1000 else "%.2f kHz" % (0.02 * 1000 ** v)),
+                                   Param("Makeup", 0.0, 0.0, 20.0, fmt=db)])])
     kick = Track("Kick", group=drums, sends=(-70.0, -70.0), output="DRUMS")
     snare = Track("Snare", group=drums, sends=(-12.0, -70.0), output="DRUMS")
     rack = Device("Bass Rack", "AudioEffectGroupDevice", chains=[
