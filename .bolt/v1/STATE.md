@@ -1,29 +1,28 @@
 # STATE
 
 ## Current Position
-- **Phase**: 3
-- **Plan**: created (03-01-PLAN.md)
-- **Task**: 3/3 (UAT PASS, docs/UAT-phase3.md)
-- **Status**: building
+- **Phase**: 4
+- **Plan**: not created
+- **Task**: —
+- **Status**: ready to plan
 
 ## Progress
 <!-- Updated after each /bolt:close -->
 - Phase 1 (Bridge Foundation): complete, 4/4 ACs PASS (2026-10-14). MCP ping 152.6 ms from real Live 10.1.43; raw p50 ~100 ms.
 - Phase 2 (Session Read): complete, 3/3 ACs PASS (2026-10-14). Real 39-track session read in 32.5 ms (58 KB). Meters of tracks in folded groups read 0.0; Live's meter scale isn't dB.
+- Phase 3 (Mixer & Device Control): complete, 3/3 ACs PASS (2026-10-14). 4-op batch incl. EQ Eight load applied in 110 ms, reverted by ONE Cmd+Z. Findings: load unfolds groups (fold not restored), auto-named returns rename on device change, bare error on missing device path.
 
 ## Recent Decisions
 <!-- Last 3-5 decisions, older ones move to PROJECT.md -->
-- Propose → confirm → apply change policy
-- Write tools address tracks by kind/index, never by name (real sessions have duplicate names)
-- Per-track meters require unfolded groups; consider auto-unfold + restore via `fold_state` in Phase 3/5
-- Threadless bridge: latency = one `update_display()` tick (~100 ms), so prefer batched writes (`apply`)
-- Phase 3 `load_effect`: GO on the select → clear hotswap → `selected_right` → `load_item` → restore approach
-- On-demand `analyze_master` tool built on spectrum-advisor
-- spectrum-advisor to be made public (pending)
+- One `apply` = one Cmd+Z, and `load_item` joins the undo step, so DnB chain presets (Phase 5) should be single batches
+- Address sends by letter/index, not return name (auto-named returns rename when their devices change)
+- Restore `fold_state` in `_load_effect` + auto-unfold for meters, in Phase 5
+- Per-track meters require unfolded groups
+- On-demand `analyze_master` tool built on spectrum-advisor; spectrum-advisor to be made public (pending)
 
 ## Blockers
 <!-- Anything preventing progress -->
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:close 3`
+Run `/bolt:plan 4`

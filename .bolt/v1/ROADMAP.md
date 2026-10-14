@@ -26,12 +26,12 @@
 ### Phase 3: Mixer & Device Control
 - **Goal**: Claude changes the mix, and every change can be undone.
 - **Requirements**:
-  - [ ] R1: `set_mixer` (volume/pan/sends/mute/solo) on tracks, returns, master
-  - [ ] R2: `set_device_param` by name or index, with range clamping
-  - [ ] R3: `load_effect` (stock, cached browser lookup, selection restored) + `delete_device`
-  - [ ] R4: Batch `apply` = one undo step; read tools allowlisted, write tools prompt
+  - [x] R1: `set_mixer` (volume/pan/sends/mute/solo) on tracks, returns, master
+  - [x] R2: `set_device_param` by name or index, with range clamping
+  - [x] R3: `load_effect` (stock, cached browser lookup, selection restored) + `delete_device`
+  - [x] R4: Batch `apply` = one undo step; read tools allowlisted, write tools prompt
 - **Success Criteria**: A proposed batch is approved, applied in Live, and reverted with one Cmd+Z.
-- **Status**: pending
+- **Status**: complete
 
 ### Phase 4: Master Analysis
 - **Goal**: Claude "hears" the master on demand.
