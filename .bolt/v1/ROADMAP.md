@@ -42,8 +42,18 @@
 - **Success Criteria**: Dorian plays a drop; Claude reports LUFS-I/S, TP, PLR, spectrum balance, sub, stereo, and a diagnosis.
 - **Status**: complete
 
-### Phase 5: DnB Workflow
-- **Goal**: One-command mixing helpers built on phases 2–4.
+### Phase 5: Workflow Foundations
+- **Goal**: Fix what the Phase 4 UAT showed is missing, so the DnB workflow can rely on it.
+- **Requirements**:
+  - [ ] R1: Typographic-minus (U+2212) display parsing fixed for third-party plugin params
+  - [ ] R2: `analyze_master` starts/stops playback itself (pre-roll) and rejects partly-silent captures
+  - [ ] R3: Rack chains: read and set chain volume/pan/mute/solo; load a stock effect inside a rack chain
+  - [ ] R4: Loading a device restores the `fold_state` of the target track and its parent groups
+- **Success Criteria**: On Dorian's session, analyze_master runs from a stopped transport, a batch edits a rack chain and reverts with one Cmd+Z, and groups stay folded.
+- **Status**: pending
+
+### Phase 6: DnB Workflow
+- **Goal**: One-command mixing helpers built on phases 2–5.
 - **Requirements**:
   - [ ] R1: Chain presets (kick clip, drum bus glue, bass bus, master chain) as proposable batches
   - [ ] R2: Auto gain staging toward the mix-bus target (−5/−6 LUFS-S) using meters + analysis
@@ -51,7 +61,7 @@
 - **Success Criteria**: "Set up my drum bus" proposes, explains and applies a chain; a re-analysis shows the mix moving toward the target.
 - **Status**: pending
 
-### Phase 6: Polish & Release
+### Phase 7: Polish & Release
 - **Goal**: Robust, documented, ready to open source.
 - **Requirements**:
   - [ ] R1: Reconnect/timeout handling; graceful errors when Live is closed or the surface isn't selected

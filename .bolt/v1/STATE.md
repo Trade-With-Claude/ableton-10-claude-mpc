@@ -1,10 +1,10 @@
 # STATE
 
 ## Current Position
-- **Phase**: 4 complete → 5 next
-- **Plan**: —
-- **Task**: —
-- **Status**: ready to plan Phase 5
+- **Phase**: 5 (Workflow Foundations)
+- **Plan**: created (05-01-PLAN.md)
+- **Task**: 0/3
+- **Status**: planned
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -20,7 +20,8 @@
 - Restore `fold_state` in `_load_effect` + auto-unfold for meters, in Phase 5
 - Per-track meters require unfolded groups
 - On-demand `analyze_master` tool built on spectrum-advisor; spectrum-advisor to be made public (pending)
-- Phase 5: `analyze_master` starts Live playback itself + rejects partly-silent captures; reference resolved from a "Reference" track in the set
+- Roadmap split (2026-10-20): Phase 5 = Workflow Foundations (UAT-4 fixes), Phase 6 = DnB Workflow, Phase 7 = Polish & Release
+- `analyze_master` autoplays + rejects partly-silent captures (Phase 5); "Reference" track deferred (Live 10 has no arrangement-clip API)
 - Fix `apply` display parsing for plugin params using U+2212 minus (use `value` for third-party plugins until then)
 
 ## Blockers
@@ -28,4 +29,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:plan 5`
+Run `/bolt:build 5`
