@@ -336,6 +336,52 @@ async def record_automation(
     return result
 
 
+@mcp.tool(description="""Create a new MIDI track with a stock instrument and, optionally, a
+session clip of notes (one undo step: Cmd+Z removes the whole track). Use it to reproduce a
+sample after analyze_sample, or to start any idea.
+
+`instrument`: a stock instrument by its browser name: "Analog", "Operator", "Wavetable",
+"Simpler"... (third-party synths can't be loaded). `index`: where the track goes (default:
+after the last track). `clip` (slot 1 of the new track):
+  {"length_beats": 16, "name": "lead",
+   "notes": [{"pitch": 70, "start_beat": 0, "length_beats": 0.75, "velocity": 115}, ...]}
+Live 10 can't put clips in the Arrangement: the user drags or records the session clip there.
+Returns track_index (address it with kind "track" in apply / set_device_param /
+get_device_params; the instrument is device_path [0]) and the clip summary.
+
+Reproducing a sample (after analyze_sample; show the transcription and the sound plan first):
+- Notes: analyze_sample's notes as they are (start_beat/length_beats are clip beats; shift
+  by the sample's start if needed). Clip length = whole bars covering the sample.
+- Glides (`glide_from`): Live 10 can't write pitch bend. Make the note before it overlap the
+  gliding note (legato, extend its length to the next start + 1/16) and turn on the synth's
+  glide/portamento (Analog: Glide on + Legato, time ~ the slide length; Operator: Glide).
+  Glides from a note that isn't played (first note of a phrase) need a pitch envelope
+  instead (e.g. Analog Pitch Env / Operator Pitch Env: start at -(semitones), short decay).
+- Oscillator: osc saw/square -> Analog Osc1 Saw/Rectangle (square = pulse width 50 %),
+  Wavetable "Basic Shapes"; sine/triangle -> Operator (Osc A Sine; triangle = soft saw/
+  low cutoff). Two detuned oscillators (or unison) + Chorus when stereo width is "wide".
+- Filter: cutoff_hz -> low-pass frequency; `resonance` (a peak lifting harmonics) -> raise
+  filter resonance and put the cutoff near resonance.hz; "open" -> filter mostly open.
+  brightness_move rises/falls -> filter envelope amount up/down (or Phase 7 automation).
+- Amp envelope: attack/decay ms, sustain 0-1, release ms map straight onto the synth's amp
+  ADSR (display units are ms and %/dB, check with get_device_params).
+- Noise "some"/"noisy" -> noise oscillator low in the mix. Stereo "wide" -> Chorus after the
+  synth; "mono" -> nothing.
+- Parameter names differ per synth: read them with get_device_params (use `query`) before
+  setting them, then send all settings + effects in ONE apply batch (one Cmd+Z).
+Then let the user A/B the clip against the sample and adjust by ear.
+""" + WRITE_POLICY)
+async def create_instrument_track(
+    name: str, instrument: str, index: int | None = None, clip: dict | None = None
+) -> dict:
+    params: dict = {"name": name, "instrument": instrument}
+    if index is not None:
+        params["index"] = index
+    if clip is not None:
+        params["clip"] = clip
+    return await _call("create_instrument_track", params)
+
+
 def main() -> None:
     mcp.run()
 

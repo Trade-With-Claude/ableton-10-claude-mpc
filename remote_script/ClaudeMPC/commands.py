@@ -6,11 +6,12 @@ import time
 
 import Live
 
+from . import build
 from . import lom
 from . import ops as batch
 from .recorder import Recorder
 
-SCRIPT_VERSION = "0.5.1"
+SCRIPT_VERSION = "0.6.0"
 
 
 class Commands(object):
@@ -28,6 +29,7 @@ class Commands(object):
             "automation_record": self.automation_record,
             "automation_status": self.automation_status,
             "automation_abort": self.automation_abort,
+            "create_instrument_track": self.create_instrument_track,
         }
 
     @property
@@ -101,6 +103,12 @@ class Commands(object):
         except Exception as e:
             self.surface._log("recorder tick error: %r" % (e,))
 
+    def create_instrument_track(self, name, instrument, index=None, clip=None):
+        t0 = time.time()
+        result = build.create_instrument_track(self.song, self.loader, name, instrument, index, clip)
+        result["elapsed_ms"] = round((time.time() - t0) * 1000, 1)
+        return result
+
     def apply(self, ops):
         t0 = time.time()
         result = batch.apply(self.song, ops, self.loader)
@@ -109,7 +117,8 @@ class Commands(object):
 
 
 class EffectLoader(object):
-    """Loads stock audio effects through Live's browser (the `loader` ops.py expects).
+    """Loads stock audio effects and instruments through Live's browser (the `loader`
+    ops.py and build.py expect).
 
     `browser.load_item` loads onto the selected track, next to the selected device, so:
     select the target track and its neighbour device, clear hotswap, set the insert
@@ -118,29 +127,37 @@ class EffectLoader(object):
 
     def __init__(self, commands):
         self.commands = commands
-        self._cache = None
+        self._caches = {}
 
-    def _find(self, name):
-        if self._cache is None:
+    def _find(self, name, category="audio_effects"):
+        cache = self._caches.get(category)
+        if cache is None:
             cache = {}
-            for child in self.commands.app.browser.audio_effects.children:
+            for child in getattr(self.commands.app.browser, category).children:
                 cache[unicode(child.name).lower()] = child
-            self._cache = cache
-        item = self._cache.get(unicode(name).lower())
+            self._caches[category] = cache
+        item = cache.get(unicode(name).lower())
         if item is not None and item.is_loadable:
             return item
         return None
 
-    def check(self, name):
-        if self._find(name) is None:
-            raise LookupError(u"stock effect not found in browser: %s (have: %s)"
-                              % (name, u", ".join(sorted(self._cache or {}))))
+    def check(self, name, category="audio_effects"):
+        if self._find(name, category) is None:
+            what = u"instrument" if category == "instruments" else u"effect"
+            raise LookupError(u"stock %s not found in browser: %s (have: %s)"
+                              % (what, name, u", ".join(sorted(self._caches.get(category) or {}))))
 
-    def load(self, track, name, position=None, chain=None):
+    def check_instrument(self, name):
+        self.check(name, "instruments")
+
+    def load_instrument(self, track, name):
+        return self.load(track, name, category="instruments")
+
+    def load(self, track, name, position=None, chain=None, category="audio_effects"):
         song = self.commands.song
-        item = self._find(name)
+        item = self._find(name, category)
         if item is None:
-            raise LookupError(u"stock effect not found in browser: %s" % name)
+            raise LookupError(u"stock device not found in browser: %s" % name)
         holder = chain if chain is not None else track
         before = list(holder.devices)
         before_track = list(track.devices)

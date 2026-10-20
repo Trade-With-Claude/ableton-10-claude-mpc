@@ -9,6 +9,7 @@ import threading
 from fake_lom import FakeLoader, dnb_song
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "remote_script" / "ClaudeMPC"))
+import build  # noqa: E402
 import lom  # noqa: E402
 import ops  # noqa: E402
 import recorder  # noqa: E402
@@ -29,6 +30,8 @@ class FakeLive:
             "automation_record": lambda p: self.recorder.start(self.song, **p),
             "automation_status": self._automation_status,
             "automation_abort": self._automation_abort,
+            "create_instrument_track": lambda p: build.create_instrument_track(
+                self.song, self.loader, **p),
         }
         self.recorder = recorder.Recorder()
         self.ticks_per_poll = 5  # update_display ticks simulated per status poll

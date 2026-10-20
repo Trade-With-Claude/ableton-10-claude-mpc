@@ -59,7 +59,7 @@ def test_get_meters_peak_hold():
 READ_TOOLS = {"ping", "get_session", "get_device_params", "get_meters", "analyze_master",
               "analyze_sample"}
 WRITE_TOOLS = {"apply", "set_mixer", "set_device_param", "load_effect", "delete_device",
-               "record_automation"}
+               "record_automation", "create_instrument_track"}
 
 
 def test_tools_registered():
@@ -237,3 +237,24 @@ def test_analyze_sample_errors(monkeypatch):
     monkeypatch.setattr(server.sound, "analyze_sample", silent)
     with pytest.raises(ToolError, match="silent"):
         run(server.analyze_sample("lead"))
+
+
+def test_create_instrument_track(fake_live):
+    clip = {"length_beats": 16, "name": "lead",
+            "notes": [{"pitch": 70, "start_beat": 0, "length_beats": 0.75, "velocity": 115}]}
+    r = run(server.create_instrument_track("Lead copy", "Analog", clip=clip))
+    assert r["track_index"] == 5 and r["device"]["path"] == [0] and r["clip"]["notes"] == 1
+    params = run(server.get_session())["tracks"][5]
+    assert params["name"] == "Lead copy" and params["type"] == "midi"
+    assert params["devices"][0]["name"] == "Analog"
+    # the new track is addressable by the usual tools
+    run(server.set_mixer("track", 5, volume_db=-6))
+
+
+def test_create_instrument_track_errors(fake_live):
+    with pytest.raises(ToolError, match="instrument not found"):
+        run(server.create_instrument_track("Lead", "Serum"))
+    with pytest.raises(ToolError, match="pitch"):
+        run(server.create_instrument_track("Lead", "Analog", clip={
+            "length_beats": 4, "notes": [{"pitch": 128, "start_beat": 0, "length_beats": 1}]}))
+    assert len(fake_live.song.tracks) == 5

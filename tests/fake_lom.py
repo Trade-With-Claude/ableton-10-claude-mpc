@@ -131,6 +131,39 @@ class Track(DeviceList):
         self.output_routing_type = Routing(output)
         self.has_audio_output = audio_out
         self.output_meter_left, self.output_meter_right = meters
+        self.clip_slots = [ClipSlot() for _ in range(8)]
+
+
+class Clip:
+    def __init__(self, length):
+        self.length = length
+        self.name = ""
+        self.notes = ()
+
+    def set_notes(self, notes):
+        self.notes = tuple(self.notes) + tuple(notes)
+
+    def get_notes(self, start, pitch, length, pitch_span):
+        return self.notes
+
+
+class ClipSlot:
+    def __init__(self):
+        self.clip = None
+
+    @property
+    def has_clip(self):
+        return self.clip is not None
+
+    def create_clip(self, length):
+        if self.clip is not None:
+            raise RuntimeError("slot already has a clip")
+        self.clip = Clip(length)
+
+
+class SongView:
+    def __init__(self, song):
+        self.selected_track = song.tracks[0] if song.tracks else None
 
 
 class Song:
@@ -154,6 +187,15 @@ class Song:
         # Live 10 starts playback from the Arrangement insert marker; setting
         # current_song_time while stopped doesn't move it (seen in the Phase 7 UAT)
         self.insert_marker = None
+        self.view = SongView(self)
+
+    def create_midi_track(self, index):
+        t = Track("%d-MIDI" % (len(self.tracks) + 1), midi=True)
+        self.tracks.insert(len(self.tracks) if index == -1 else index, t)
+        self.view.selected_track = t  # Live selects the new track
+
+    def delete_track(self, index):
+        del self.tracks[index]
 
     def start_playing(self):
         if self.insert_marker is not None:
@@ -172,6 +214,7 @@ class Song:
 
 class FakeLoader:
     STOCK = {"eq eight": "Eq8", "utility": "StereoGain", "glue compressor": "GlueCompressor"}
+    INSTRUMENTS = {"analog": "UltraAnalog", "operator": "Operator", "wavetable": "InstrumentVector"}
 
     def __init__(self, fail=False):
         self.fail = fail
@@ -189,6 +232,18 @@ class FakeLoader:
         pos = len(holder.devices) if position is None else position
         holder.devices.insert(pos, dev)
         self.loads.append((holder.name, name, pos))
+        return dev
+
+    def check_instrument(self, name):
+        if name.lower() not in self.INSTRUMENTS:
+            raise LookupError("stock instrument not found in browser: %s" % name)
+
+    def load_instrument(self, track, name):
+        if self.fail:
+            raise RuntimeError("browser exploded")
+        dev = Device(name, self.INSTRUMENTS[name.lower()], type=1)
+        track.devices.append(dev)
+        self.loads.append((track.name, name, 0))
         return dev
 
 

@@ -3,8 +3,8 @@
 ## Current Position
 - **Phase**: 8 (Sound Reproduction)
 - **Plan**: created (08-01-PLAN.md)
-- **Task**: 0/3
-- **Status**: planned
+- **Task**: 2/3 (Task 3 = Live UAT, Remote Script 0.6.0 installed)
+- **Status**: building
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -34,4 +34,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:build 8`
+Restart Live (loads 0.6.0), `/mcp` → Reconnect claude-mpc, then Task 3 (UAT): reproduce the test-track sample
