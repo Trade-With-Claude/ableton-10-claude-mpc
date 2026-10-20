@@ -371,6 +371,8 @@ Reproducing a sample (after analyze_sample; show the transcription and the sound
 - Amp envelope: attack/decay ms, sustain, release ms -> Amp Attack/Decay/Sustain/Release
   (times in ms: display 60 = 60 ms even when Live shows seconds).
 - Noise "some"/"noisy" -> Osc 2 on a noise-ish table, low gain.
+- Wavetable LFOs retrigger on every note by default: for pads and sustained chords set
+  "LFO 1 Retrigger"/"LFO 2 Retrigger" Off, or a filter LFO jumps at each chord change.
 Then let the user A/B the clip against the sample and adjust by ear.
 """ + WRITE_POLICY)
 async def create_instrument_track(
