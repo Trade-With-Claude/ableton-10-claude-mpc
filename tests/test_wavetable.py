@@ -26,9 +26,8 @@ def test_read_defaults(wt):
     assert r["categories"] == ["Basics", "Synth"]
     assert r["osc1"]["category"] == "Basics" and r["osc1"]["table"] == "Basic Shapes"
     assert r["osc1"]["effect_mode"] == "None" and r["mono"] is False
-    assert r["unison"] == {"mode": "None", "voices": 2} and r["filter_routing"] == "Serial"
+    assert r["unison"] == {"mode": "None", "voices": 3} and r["filter_routing"] == "Serial"
     assert r["modulation"] == [] and r["modulation_targets"] == ["Filter 1 Freq"]
-    assert "set_modulation_value" in r["api"]
 
 
 def test_apply_everything_in_one_undo_step(song, wt):
@@ -46,6 +45,7 @@ def test_apply_everything_in_one_undo_step(song, wt):
     assert s["osc1"]["category"] == "Synth" and s["osc1"]["table"] == "Bright Lead"
     assert s["osc2"]["table"] == "Pulse Width" and s["osc1"]["effect_mode"] == "Classic"
     assert s["mono"] is True and s["unison"] == {"mode": "Classic", "voices": 4}
+    assert wt.unison_voice_count == 4  # Live takes the count itself (UAT-8: 4 showed as 2)
     assert s["filter_routing"] == "Parallel"
     assert {(m["target"], m["source"], m["amount"]) for m in s["modulation"]} == {
         ("Osc 1 Transp", "Env 2", -0.08), ("Filter 1 Freq", "LFO 1", 0.3)}
@@ -57,6 +57,7 @@ def test_apply_everything_in_one_undo_step(song, wt):
     ({"voices": 3}, "unknown settings"),
     ({"osc1": {"category": "Nope"}}, "matches 0"),
     ({"unison": {"mode": "Supersaw"}}, "unison mode"),
+    ({"unison": {"voices": 9}}, "1..8"),
     ({"modulation": [{"target": "Osc 1 Pos", "source": "Env 9", "amount": 0.1}]}, "source"),
     ({"modulation": [{"target": "Osc 1 Pos", "source": "Env 2", "amount": 2}]}, "-1..1"),
     ({"modulation": [{"target": "Osc 1 Pos", "source": "Env 2"}]}, "needs target"),

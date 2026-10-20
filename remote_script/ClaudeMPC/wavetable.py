@@ -27,7 +27,7 @@ CLASS_NAME = "InstrumentVector"
 EFFECT_MODES = ["None", "FM", "Classic", "Modern"]
 UNISON_MODES = ["None", "Classic", "Shimmer", "Noise", "Phase Sync", "Position Spread", "Random Note"]
 FILTER_ROUTINGS = ["Serial", "Parallel", "Split"]
-VOICES = [2, 3, 4, 5, 6, 7, 8]  # unison_voice_count
+MAX_UNISON_VOICES = 8  # unison_voice_count is the voice count itself (UAT-8)
 POLY_VOICES = [2, 3, 4, 5, 6, 7, 8, 16, 24, 32]
 # columns of the modulation matrix (get/set_modulation_value source index)
 SOURCES = ["Env 1", "Env 2", "Env 3", "LFO 1", "LFO 2", "Velocity", "Note", "Pitch Bend",
@@ -94,7 +94,7 @@ def read(device):
     out["mono"] = None if mono is None else int(mono) == 0
     out["poly_voices"] = _name(POLY_VOICES, _get(device, "poly_voices"))
     out["unison"] = {"mode": _name(UNISON_MODES, _get(device, "unison_mode")),
-                     "voices": _name(VOICES, _get(device, "unison_voice_count"))}
+                     "voices": _get(device, "unison_voice_count")}
     out["filter_routing"] = _name(FILTER_ROUTINGS, _get(device, "filter_routing"))
     targets = [_text(t) for t in (_get(device, "visible_modulation_target_names") or [])]
     mods = []
@@ -109,8 +109,6 @@ def read(device):
     out["modulation_targets"] = targets
     out["modulation"] = mods
     out["sources"] = SOURCES
-    out["api"] = sorted(a for a in dir(device) if not a.startswith("_") and any(
-        k in a for k in ("oscillator", "modulation", "unison", "mono", "poly", "routing")))
     return out
 
 
@@ -189,8 +187,13 @@ def plan(device, settings):
     if "mode" in uni:
         step(u"unison mode", "unison_mode", _choice(UNISON_MODES, uni["mode"], u"unison mode"))
     if "voices" in uni:
-        step(u"unison voices", "unison_voice_count",
-             _choice([_text(v) for v in VOICES], _text(uni["voices"]), u"unison voices"))
+        try:
+            voices = int(uni["voices"])
+        except (TypeError, ValueError):
+            raise ValueError(u"unison voices must be a number, got %r" % (uni["voices"],))
+        if not 1 <= voices <= MAX_UNISON_VOICES:
+            raise ValueError(u"unison voices must be 1..%d, got %d" % (MAX_UNISON_VOICES, voices))
+        step(u"unison voices", "unison_voice_count", voices)
     if "filter_routing" in settings:
         step(u"filter routing", "filter_routing",
              _choice(FILTER_ROUTINGS, settings["filter_routing"], u"filter_routing"))

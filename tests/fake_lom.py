@@ -321,7 +321,7 @@ class FakeWavetable(Device):
         self.mono_poly = 1
         self.poly_voices = 6
         self.unison_mode = 0
-        self.unison_voice_count = 0
+        self.unison_voice_count = 3
         self.filter_routing = 0
         self.visible_modulation_target_names = ["Filter 1 Freq"]
         self.matrix = {}
