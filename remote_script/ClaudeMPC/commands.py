@@ -8,14 +8,16 @@ import Live
 
 from . import lom
 from . import ops as batch
+from .recorder import Recorder
 
-SCRIPT_VERSION = "0.4.0"
+SCRIPT_VERSION = "0.5.0"
 
 
 class Commands(object):
     def __init__(self, surface):
         self.surface = surface
         self.loader = EffectLoader(self)
+        self.recorder = Recorder(log=surface._log)
         self.table = {
             "ping": self.ping,
             "get_session": self.get_session,
@@ -23,6 +25,9 @@ class Commands(object):
             "get_meters": self.get_meters,
             "apply": self.apply,
             "transport": self.transport,
+            "automation_record": self.automation_record,
+            "automation_status": self.automation_status,
+            "automation_abort": self.automation_abort,
         }
 
     @property
@@ -48,6 +53,7 @@ class Commands(object):
             "tempo": self.song.tempo,
             "is_playing": bool(self.song.is_playing),
             "script_version": SCRIPT_VERSION,
+            "recorder_state": self.recorder.state,
         }
 
     def get_session(self):
@@ -75,6 +81,23 @@ class Commands(object):
         else:
             self.song.stop_playing()
         return {"is_playing": bool(self.song.is_playing)}
+
+    def automation_record(self, lanes, start_bar, bars, preroll_bars=1, overwrite=False):
+        """Start a take: play the lanes' curves while Arrangement record is on (see recorder.py)."""
+        return self.recorder.start(self.song, lanes, start_bar, bars, preroll_bars, overwrite)
+
+    def automation_status(self):
+        return self.recorder.status()
+
+    def automation_abort(self):
+        return self.recorder.abort(u"aborted by request")
+
+    def tick(self):
+        """Called on every update_display(): advances a running take."""
+        try:
+            self.recorder.tick()
+        except Exception as e:
+            self.surface._log("recorder tick error: %r" % (e,))
 
     def apply(self, ops):
         t0 = time.time()

@@ -12,6 +12,7 @@ class Param:
         self.is_quantized = quantized
         self.value_items = list(items)
         self.is_enabled = True
+        self.automation_state = 0  # 0 none, 1 playing, 2 overridden
         self._fmt = fmt or (lambda v: "%.2f" % v)
 
     @property
@@ -140,6 +141,21 @@ class Song:
         self.tempo = tempo
         self.undo_begins = 0
         self.undo_ends = 0
+        # transport, for the automation recorder
+        self.is_playing = False
+        self.current_song_time = 0.0
+        self.record_mode = False
+        self.session_automation_record = False
+        self.loop = True
+        self.signature_numerator = 4
+        self.signature_denominator = 4
+        self.back_to_arranger = False
+
+    def start_playing(self):
+        self.is_playing = True
+
+    def stop_playing(self):
+        self.is_playing = False
 
     def begin_undo_step(self):
         self.undo_begins += 1
@@ -176,6 +192,19 @@ def khs_output_gain(value=0.48714131116867065):
         d = -20.0 + 40.0 * v
         return ("\u2212%.2f dB" % -d) if d < 0 else ("+%.2f dB" % d)
     return Param("Output gain", value, 0.0, 1.0, fmt=fmt)
+
+
+def hz_fmt(v):
+    """Auto Filter Frequency: raw 20..135 is a note number, shown in Hz/kHz."""
+    f = 440.0 * 2 ** ((v - 69.0) / 12.0)
+    return "%.0f Hz" % f if f < 1000 else "%.2f kHz" % (f / 1000.0)
+
+
+def auto_filter():
+    return Device("Auto Filter", "AutoFilter",
+                  [Param("Frequency", 127.0, 20.0, 135.0, fmt=hz_fmt),
+                   Param("Resonance", 0.2, 0.0, 1.25, fmt=lambda v: "%.2f" % v),
+                   Param("LFO Amount", 0.0, 0.0, 30.0, fmt=lambda v: "%.1f" % v)])
 
 
 def dnb_song():

@@ -32,6 +32,7 @@ class ClaudeMPC(ControlSurface):
             self._transport.poll()
         except Exception as e:
             self._log("poll error: %r" % (e,))
+        self._commands.tick()
 
     def disconnect(self):
         try:
