@@ -57,7 +57,8 @@ def test_get_meters_peak_hold():
 
 
 READ_TOOLS = {"ping", "get_session", "get_device_params", "get_meters", "analyze_master"}
-WRITE_TOOLS = {"apply", "set_mixer", "set_device_param", "load_effect", "delete_device"}
+WRITE_TOOLS = {"apply", "set_mixer", "set_device_param", "load_effect", "delete_device",
+               "record_automation"}
 
 
 def test_tools_registered():
@@ -125,3 +126,88 @@ def test_chain_mixer_and_load_into_chain_via_apply(fake_live):
     chains = run(server.get_session())["tracks"][3]["devices"][1]["chains"]
     assert chains[1]["volume"]["display"] == "-3.0 dB"
     assert chains[1]["devices"][0]["name"] == "EQ Eight"
+
+
+# -- record_automation ---------------------------------------------------------
+@pytest.fixture
+def take(fake_live, monkeypatch):
+    from fake_lom import Track, auto_filter
+    monkeypatch.setattr(server, "RECORD_POLL_S", 0.001)
+    fake_live.song.tracks.append(Track("test", devices=[auto_filter()]))
+    fake_live.song.tracks[2].arm = True
+    return fake_live
+
+
+def filter_lane(**seg):
+    s = {"from_bar": 5, "to_bar": 7, "shape": "exp", "start": 300, "end": "12 kHz"}
+    s.update(seg)
+    return [{"kind": "track", "index": 5, "device_path": [0], "param": "Frequency", "segments": [s]}]
+
+
+def test_record_automation_done(take):
+    r = run(server.record_automation(filter_lane(), start_bar=5, bars=2))
+    assert r["state"] == "done" and r["progress"] == 1.0 and r["points_written"] > 10
+    assert r["lanes"] == [{"param": "Auto Filter: Frequency", "track": "test"}]
+    assert r["elapsed_s"] >= 0
+    song = take.song
+    assert not song.is_playing and not song.record_mode and song.loop and song.tracks[2].arm
+    assert song.tracks[5].devices[0].parameters[1].str_for_value(
+        song.tracks[5].devices[0].parameters[1].value) == "12.00 kHz"
+    assert take.abort_calls == 0
+
+
+def test_record_automation_validation_error(take):
+    with pytest.raises(ToolError, match="too fast to draw"):
+        run(server.record_automation(filter_lane(shape="sine", rate="1/8"), start_bar=5, bars=2))
+    assert take.recorder.state == "idle"
+
+
+def test_record_automation_aborted_by_stop_in_live(take):
+    orig = take._automation_status
+
+    def status_then_stop(p):
+        out = orig(p)
+        if out["state"] == "recording":
+            take.song.stop_playing()
+        return out
+    take.handlers["automation_status"] = status_then_stop
+    r = run(server.record_automation(filter_lane(), start_bar=5, bars=2))
+    assert r["state"] == "aborted" and "playback stopped in Live" in r["error"]
+    assert take.song.tracks[2].arm
+
+
+def test_record_automation_error_mid_take_is_tool_error(take):
+    orig = take._automation_status
+    param = take.song.tracks[5].devices[0].parameters[1]
+
+    def status_then_break(p):
+        out = orig(p)
+        if out["state"] == "recording":
+            param.min = param.max = 20.0  # every later write is out of range
+        return out
+    take.handlers["automation_status"] = status_then_break
+    with pytest.raises(ToolError, match="take failed: .*out of range.*restored"):
+        run(server.record_automation(filter_lane(), start_bar=5, bars=2))
+    assert not take.song.is_playing and not take.song.record_mode and take.song.tracks[2].arm
+
+
+def test_record_automation_timeout_aborts(take, monkeypatch):
+    monkeypatch.setattr(server, "RECORD_SLACK_S", -100.0)  # already late at the first poll
+    take.ticks_per_poll = 0
+    with pytest.raises(ToolError, match="did not finish"):
+        run(server.record_automation(filter_lane(), start_bar=5, bars=2))
+    assert take.abort_calls == 1 and take.recorder.state == "aborted"
+    assert not take.song.is_playing and take.song.tracks[2].arm
+
+
+def test_record_automation_cancel_aborts(take):
+    take.ticks_per_poll = 0  # never finishes on its own
+
+    async def cancel_soon():
+        task = asyncio.create_task(server.record_automation(filter_lane(), start_bar=5, bars=2))
+        await asyncio.sleep(0.2)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    run(cancel_soon())
+    assert take.abort_calls == 1 and not take.song.record_mode

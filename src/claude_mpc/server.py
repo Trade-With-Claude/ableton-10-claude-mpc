@@ -12,6 +12,8 @@ from .client import LiveClient
 from .protocol import DEFAULT_PORT, LiveError
 
 PREROLL_S = 1.0  # after autoplay starts Live, let the section settle before recording
+RECORD_POLL_S = 0.25  # record_automation: status poll interval
+RECORD_SLACK_S = 5.0  # record_automation: allowed time beyond the take's expected length
 
 mcp = MCPServer("claude-mpc")
 live = LiveClient(port=int(os.environ.get("CLAUDE_MPC_PORT", DEFAULT_PORT)))
@@ -236,6 +238,70 @@ async def load_effect(kind: str, index: int, name: str, position: int | None = N
 """ + WRITE_POLICY)
 async def delete_device(kind: str, index: int, device_path: list[int]) -> dict:
     return await _apply([_op("delete_device", kind, index, path=device_path)])
+
+
+@mcp.tool(description="""Write automation into the Arrangement by RECORDING it: Live plays from
+`preroll_bars` before `start_bar`, punches in at `start_bar`, the script moves each parameter
+along its curve in time with the song, punches out after `bars`, stops and puts everything back
+(loop, Automation Arm, playhead, track arms: every track is disarmed during the take so no
+audio/MIDI is recorded). The result is ordinary, hand-editable Arrangement automation.
+Blocks for the take's length (+ ~1 s); Live must be stopped first. 4/4 only.
+
+`lanes`: one per parameter, addressed like set_device_param:
+  {"kind": "track", "index": 17, "device_path": [5], "param": "Frequency",
+   "segments": [{"from_bar": 33, "to_bar": 49, "shape": "exp", "start": 300, "end": "12 kHz"}, ...]}
+Segments use 1-based bars within start_bar..start_bar+bars, values in display units (as
+get_device_params shows them); interpolation is in Live's raw scale (filter frequency moves
+musically). Shapes: ramp, exp (slow start, fast end: builds), log (fast start, slow end),
+hold (start), sine / triangle / square (LFO between start and end, `rate` = bars per cycle,
+e.g. "1/2", starting at start), steps (`values` list, one per `rate`). Outside its segments a
+lane holds its nearest value.
+
+Turning a vibe into lanes: name the parameter(s) and bars, pick shapes ("slowly opening" =
+exp ramp up; "a dip before the drop" = log down then ramp back over 1 bar; "breathing" =
+sine at 1-2 bars), and say the values in Hz/dB/%. If the effect isn't on the track yet, load
+it first (load_effect/apply). The script draws ~10 points/s (~3 per beat at 175 BPM): fine
+for ramps and slow LFOs; an LFO faster than ~1/2 bar is refused, so automate the device's own
+LFO (rate/amount) instead. A parameter that already has automation is refused unless
+`overwrite` (it would be replaced in those bars): say so in the proposal.
+
+Result: state "done" | "aborted" (Dorian pressed stop: the part already recorded stays) with
+points_written, mean_tick_ms and elapsed_s. To remove a take, Dorian presses Cmd+Z in Live
+(click in Live first so it has focus).
+""" + WRITE_POLICY)
+async def record_automation(
+    lanes: list[dict],
+    start_bar: float,
+    bars: float,
+    preroll_bars: float = 1,
+    overwrite: bool = False,
+) -> dict:
+    status = await _call("ping")
+    expected_s = (bars + preroll_bars) * 4 * 60.0 / float(status["tempo"])
+    t0 = time.perf_counter()
+    await _call("automation_record", {"lanes": lanes, "start_bar": start_bar, "bars": bars,
+                                      "preroll_bars": preroll_bars, "overwrite": overwrite})
+    finished = False
+    try:
+        while True:
+            await asyncio.sleep(RECORD_POLL_S)
+            result = await _call("automation_status")
+            if result["state"] not in ("preroll", "recording"):
+                finished = True
+                break
+            if time.perf_counter() - t0 > expected_s + RECORD_SLACK_S:
+                raise ToolError(f"take did not finish in {expected_s + RECORD_SLACK_S:.0f} s "
+                                f"(stuck at bar {result.get('bar')}): aborted it")
+    finally:
+        if not finished:  # timeout, error or cancellation: never leave Live recording
+            try:
+                await _call("automation_abort")
+            except ToolError:
+                pass
+    result["elapsed_s"] = round(time.perf_counter() - t0, 1)
+    if result["state"] == "error":
+        raise ToolError(f"take failed: {result.get('error')} (transport and arms restored)")
+    return result
 
 
 def main() -> None:

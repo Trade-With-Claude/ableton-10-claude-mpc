@@ -11,6 +11,7 @@ from fake_lom import FakeLoader, dnb_song
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "remote_script" / "ClaudeMPC"))
 import lom  # noqa: E402
 import ops  # noqa: E402
+import recorder  # noqa: E402
 
 
 class FakeLive:
@@ -25,7 +26,13 @@ class FakeLive:
             "get_device_params": self._device_params,
             "get_meters": self._meters,
             "apply": lambda p: ops.apply(self.song, p["ops"], self.loader),
+            "automation_record": lambda p: self.recorder.start(self.song, **p),
+            "automation_status": self._automation_status,
+            "automation_abort": self._automation_abort,
         }
+        self.recorder = recorder.Recorder()
+        self.ticks_per_poll = 5  # update_display ticks simulated per status poll
+        self.abort_calls = 0
         self.song = dnb_song()
         self.loader = FakeLoader()
         self.meter_reads = 0
@@ -51,6 +58,19 @@ class FakeLive:
         self.transport_calls.append(bool(p["play"]))
         self.playing = bool(p["play"])
         return {"is_playing": self.playing}
+
+    def _automation_abort(self, p):
+        self.abort_calls += 1
+        return self.recorder.abort("aborted by request")
+
+    def _automation_status(self, p):
+        # Live ticks ~10x/s; simulate a few ticks (and the playhead moving) per poll
+        beats_per_tick = 0.1 * self.song.tempo / 60.0
+        for _ in range(self.ticks_per_poll):
+            if self.song.is_playing:
+                self.song.current_song_time += beats_per_tick
+            self.recorder.tick()
+        return self.recorder.status()
 
     def _meters(self, p):
         # master peaks on the 2nd read only, to exercise peak-hold
