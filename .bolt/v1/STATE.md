@@ -3,8 +3,8 @@
 ## Current Position
 - **Phase**: 7 (Automation from Vibes)
 - **Plan**: created (07-01-PLAN.md)
-- **Task**: 2/3 (Task 3 = Live UAT, Remote Script 0.5.0 installed, waiting on Dorian)
-- **Status**: building
+- **Task**: 3/3 (UAT done on 0.5.1, docs/UAT-phase7.md; stop-mid-take not run live)
+- **Status**: build complete
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -32,4 +32,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Save the set, restart Live (loads 0.5.0), `/mcp` → Reconnect claude-mpc, then continue Task 3 (UAT)
+Run `/bolt:close` for Phase 7
