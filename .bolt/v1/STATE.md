@@ -3,8 +3,8 @@
 ## Current Position
 - **Phase**: 5 (Workflow Foundations)
 - **Plan**: created (05-01-PLAN.md)
-- **Task**: 0/3
-- **Status**: planned
+- **Task**: 2/3 (Task 3 = Live UAT, Remote Script 0.4.0 installed, waiting on Dorian)
+- **Status**: building
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -29,4 +29,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:build 5`
+Restart Live (loads Remote Script 0.4.0) + restart Claude Code, `/bolt:resume`, then continue `/bolt:build 5` Task 3 (UAT)
