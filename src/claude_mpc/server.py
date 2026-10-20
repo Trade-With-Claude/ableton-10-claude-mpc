@@ -40,7 +40,8 @@ async def _call(cmd: str, params: dict | None = None):
 
 @mcp.tool()
 async def ping() -> dict:
-    """Check the connection to Ableton Live. Returns Live version, tempo and round-trip time."""
+    """Check the connection to Ableton Live. Returns Live version, tempo, is_playing,
+    position_bar (playhead / insert marker in 1-based 4/4 bars), recorder_state and round-trip time."""
     t0 = time.perf_counter()
     result = await _call("ping")
     result["rtt_ms"] = round((time.perf_counter() - t0) * 1000, 1)
@@ -246,6 +247,8 @@ along its curve in time with the song, punches out after `bars`, stops and puts 
 (loop, Automation Arm, playhead, track arms: every track is disarmed during the take so no
 audio/MIDI is recorded). The result is ordinary, hand-editable Arrangement automation.
 Blocks for the take's length (+ ~1 s); Live must be stopped first. 4/4 only.
+The parameters keep their current value before start_bar. "From my cursor": ping returns
+`position_bar` (the Arrangement insert marker while stopped); use its whole bar as start_bar.
 
 `lanes`: one per parameter, addressed like set_device_param:
   {"kind": "track", "index": 17, "device_path": [5], "param": "Frequency",

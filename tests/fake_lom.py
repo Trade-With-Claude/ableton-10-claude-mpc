@@ -151,7 +151,13 @@ class Song:
         self.signature_denominator = 4
         self.back_to_arranger = False
 
+        # Live 10 starts playback from the Arrangement insert marker; setting
+        # current_song_time while stopped doesn't move it (seen in the Phase 7 UAT)
+        self.insert_marker = None
+
     def start_playing(self):
+        if self.insert_marker is not None:
+            self.current_song_time = self.insert_marker
         self.is_playing = True
 
     def stop_playing(self):

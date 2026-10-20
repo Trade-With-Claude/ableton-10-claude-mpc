@@ -10,7 +10,7 @@ from . import lom
 from . import ops as batch
 from .recorder import Recorder
 
-SCRIPT_VERSION = "0.5.0"
+SCRIPT_VERSION = "0.5.1"
 
 
 class Commands(object):
@@ -54,6 +54,8 @@ class Commands(object):
             "is_playing": bool(self.song.is_playing),
             "script_version": SCRIPT_VERSION,
             "recorder_state": self.recorder.state,
+            # the playhead (the Arrangement insert marker when stopped), 1-based 4/4 bars
+            "position_bar": round(self.song.current_song_time / 4.0 + 1, 2),
         }
 
     def get_session(self):

@@ -4,11 +4,14 @@
 Live 10's API can't write Arrangement automation, but Live records parameter changes made
 by a script while Arrangement record + Automation Arm are on. So a take is:
   start(): validate, snapshot transport + arms, disarm every track (so no audio/MIDI is
-           recorded), loop off, set the params to their start values, put the playhead
-           `preroll_bars` before `start_bar`, Automation Arm on, play.
-  tick():  (every update_display, ~10 Hz) punch in when the playhead reaches start_bar,
-           write each lane's value at the current beat, punch out at the end, stop and
-           restore the snapshot. Stopping playback in Live aborts the take.
+           recorded), loop off, Automation Arm on, play.
+  tick():  (every update_display, ~10 Hz) on the first tick Live is playing, jump the
+           playhead to `preroll_bars` before `start_bar` (setting it while stopped doesn't
+           move where playback starts); punch in when it reaches start_bar, write each
+           lane's value at the current beat, punch out at the end, stop and restore the
+           snapshot. Stopping playback in Live aborts the take.
+The params are only written from the punch-in on, so the automation Live keeps before
+start_bar is the value they had before the take.
 
 Pure Python 2.7 / 3 compatible, no Live imports (like lom.py and ops.py).
 """
@@ -44,6 +47,7 @@ class Recorder(object):
         self._begin = self._end = 0.0
         self._start_bar = self._bars = None
         self._seen_playing = False
+        self._preroll_beat = 0.0
         self._ticks = 0
         self._points = 0
         self._tick_times = []
@@ -72,13 +76,11 @@ class Recorder(object):
             "current_song_time": song.current_song_time,
             "armed": [t for t in song.tracks if getattr(t, "can_be_armed", False) and t.arm],
         }
+        self._preroll_beat = max(0.0, curves.bar_to_beat(start_bar - preroll_bars))
         try:
             for t in self._snap["armed"]:
                 t.arm = False
             song.loop = False
-            for lane in compiled:
-                self._write(lane, self._begin)
-            song.current_song_time = max(0.0, curves.bar_to_beat(start_bar - preroll_bars))
             song.session_automation_record = True
             self.state = "preroll"
             song.start_playing()
@@ -101,15 +103,16 @@ class Recorder(object):
         song = self._song
         try:
             playing = bool(song.is_playing)
-            if playing:
+            if playing and not self._seen_playing:
                 self._seen_playing = True
-            elif self._seen_playing:
+                song.current_song_time = self._preroll_beat  # the pre-roll starts here
+                return
+            if not playing and self._seen_playing:
                 self._finish("aborted", u"playback stopped in Live at bar %s" % self._bar())
                 return
-            elif self._ticks > START_TIMEOUT_TICKS:
-                self._fail(u"Live did not start playing")
-                return
-            else:
+            if not playing:
+                if self._ticks > START_TIMEOUT_TICKS:
+                    self._fail(u"Live did not start playing")
                 return
             beat = self._beat = float(song.current_song_time)
             if self.state == "preroll":

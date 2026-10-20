@@ -29,7 +29,7 @@ def song():
     s.tempo = 175.0
     s.tracks.append(Track("test", devices=[auto_filter()]))
     s.tracks[2].arm = True  # Snare armed, like track 28 in Dorian's set
-    s.current_song_time = 37.0  # playhead somewhere else
+    s.current_song_time = s.insert_marker = 37.0  # Dorian's cursor somewhere else
     return s
 
 
@@ -79,14 +79,20 @@ def note(hz):
 def test_full_take(song, rec, clock):
     status = rec.start(song, [opening()], start_bar=9, bars=4)
     assert status["state"] == "preroll"
-    # set up for the take: playhead 1 bar before, loop off, armed track disarmed, automation arm on
-    assert song.current_song_time == curves.bar_to_beat(8)
+    # set up for the take: loop off, armed track disarmed, automation arm on, playing
     assert song.loop is False and song.session_automation_record is True
     assert song.tracks[2].arm is False
     assert song.is_playing and not song.record_mode
-    assert freq(song).value == pytest.approx(note(300), abs=0.1)
+    # nothing is written before the punch-in: Live keeps the original value before the take
+    assert freq(song).value == 127.0
+    # Live started at the cursor; the first tick jumps the playhead 1 bar before the take
+    assert song.current_song_time == 37.0
+    clock.t += TICK_S
+    rec.tick()
+    assert song.current_song_time == curves.bar_to_beat(8)
 
     history = run(song, rec, clock)
+    assert all(v == 127.0 for b, r, v in history if b < curves.bar_to_beat(9))
     begin, end = curves.bar_to_beat(9), curves.bar_to_beat(13)
     # never records during the pre-roll; punches in on the first tick at/after bar 9
     assert all(not r for b, r, _ in history if b < begin)
@@ -102,6 +108,7 @@ def test_full_take(song, rec, clock):
     st = rec.status()
     assert st["state"] == "done" and st["progress"] == 1.0 and st["error"] is None
     assert st["points_written"] > 40 and st["mean_tick_ms"] == pytest.approx(100.0)
+    assert st["ticks"] - st["points_written"] >= 13  # ~1 bar of pre-roll ticks wrote nothing
     assert st["lanes"] == [{"param": "Auto Filter: Frequency", "track": "test"}]
     assert not song.is_playing and not song.record_mode
     assert song.loop is True and song.session_automation_record is False
@@ -121,6 +128,7 @@ def test_two_lanes_in_one_take(song, rec, clock):
 
 def test_preroll_zero_and_bar_one(song, rec, clock):
     rec.start(song, [opening(start_bar=1, bars=2)], start_bar=1, bars=2, preroll_bars=1)
+    rec.tick()
     assert song.current_song_time == 0.0  # can't pre-roll before the song start
     run(song, rec, clock)
     assert rec.state == "done"
