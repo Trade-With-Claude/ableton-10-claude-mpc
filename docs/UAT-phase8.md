@@ -1,0 +1,27 @@
+# UAT — Phase 8: Sound Reproduction
+
+Date: 2026-10-20 · Live 10.1.43 · set at 175 BPM · Remote Script 0.6.0 → 0.6.1 (+ unison fix, installed, loads on next restart)
+Sample: `~/Documents/sample/TSP_SL_172_synth_lead_tension_F#.wav` (track 33 "test", 4 bars at 172 BPM)
+
+## Results
+
+| Step | Result | Notes |
+|---|---|---|
+| Analyse | PASS | `analyze_sample` by path, ~5 s. F# major arpeggio A#4 / F#5 / C#6 on beats 1, 2.5, 4, every note gliding up ~2 st; saw-ish, resonant peak ~1.47 kHz, cutoff ~2.6 kHz, attack ~90 ms, wide. `octave_check` flagged on E5/C#6 (not raised by Dorian). Bars 1–2 transcribed an E5 grace before F#5; Claude cleaned the clip to one consistent pattern. |
+| Build v1: Analog | PASS mechanically / "vraiment basique" | `create_instrument_track` 1.3 s: MIDI track 34 "Lead repro", Analog, 16-beat clip with 12 notes. Settings batch (14 ops incl. Chorus) 254 ms. Bug: Attack/Release `display` 60/30 landed on 15.0 s ('s' vs 'ms' display) → fixed live with raw values, fixed in code (0.6.1). Dorian: "ça sonne pas vraiment pareil… t'aurais plus dû essayer d'utiliser wave table". |
+| Clip in the Arrangement | PASS with friction | Dorian didn't see the clip (it is in Session View) and couldn't drag across views; Cmd+C / Tab / Cmd+V worked. |
+| Wavetable API (0.6.1) | PASS | Live 10.1 exposes `WavetableDevice`: 12 categories, tables per osc, mono_poly, unison, filter routing, modulation matrix with targets incl. "Pitch". Bug: `unison_voice_count` is the count itself (4 showed as 2) → worked around live, fixed in code (`b247964`). |
+| Build v2: Wavetable | PASS | Track 35 "Lead WT": mono, Basics/Saw Dual 1, unison Classic 4 voices, Env 2 → Pitch −0.042 (≈ −2 st glide into every note, 120 ms), Filter 1 LP MS2 1.5 kHz Res 55 % Drive 3 dB, Amp A 60 ms / S −3 dB / R 30 ms. Dorian: "ça se rapproche déjà un peu plus… il manque une modulation sur la wave table". |
+| + wavetable movement | PASS | Env 3 → Osc 1 Pos +0.5 (A 120 / D 400 / S 50 %), LFO 1 → Osc 1 Pos +0.15 at 1.5 Hz. Dorian: "on se rapproche… une enveloppe qui bouge un peu sur le filtre". |
+| + filter per note | PASS | Env 2 / Random / Velocity → Filter 1 Freq (+0.25 / +0.15 / +0.2). **Dorian: "franchement c'est pas mal. Au moins y a une fondation, y a une base et après, moi, j'ai plus qu'à chipoter".** |
+
+Undo: each build/settings call is one Cmd+Z (track creation = one step). Not exercised this session.
+
+## Findings
+
+1. **basic-pitch is out** (no py3.13 wheels on macOS; 1 note on this gliding lead). pyin + glide merging transcribes it.
+2. **Wavetable by default** (Dorian's preference): Analog/Operator sounded basic. The recipe in `create_instrument_track` is now Wavetable-first.
+3. **Live 10.1 has `WavetableDevice`**: tables, voices, unison, routing and the modulation matrix are scriptable. Matrix targets include a global "Pitch" (±48 st over ±1 → −0.042 ≈ −2 st), which makes glides from unplayed notes easy.
+4. **Display units**: Analog shows "1.5k" and switches "ms" → "s"; `parse_display` now reads both (times compared in ms).
+5. **Clips land in Session View**: say so up front and give the Cmd+C / Tab / Cmd+V route.
+6. Phase 7 automation on the filter was offered as the next layer; per-note variation (Random/Velocity/Env → filter) was enough for a starting point.
