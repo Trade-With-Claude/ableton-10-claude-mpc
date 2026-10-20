@@ -25,3 +25,19 @@ Undo: each build/settings call is one Cmd+Z (track creation = one step). Not exe
 4. **Display units**: Analog shows "1.5k" and switches "ms" → "s"; `parse_display` now reads both (times compared in ms).
 5. **Clips land in Session View**: say so up front and give the Cmd+C / Tab / Cmd+V route.
 6. Phase 7 automation on the filter was offered as the next layer; per-note variation (Random/Velocity/Env → filter) was enough for a starting point.
+
+## Sample 2: track 37 "BOS_AA_80_Synth_Arp_Loop_Visions_Counter_C#m" (8 bars, 80 BPM, arp with delay tails)
+
+| Step | Result | Notes |
+|---|---|---|
+| Analyse | FAIL (tool) / PASS (manual) | `analyze_sample` found the right pitch classes but 1–2 octaves low (E2/E3 instead of E5/G#5), and odd rhythms: delay tails overlap, harmonics dominate pyin. Onsets were a steady 8th grid; a manual onset + harmonic-salience pass (CQT energy that *appears* at each onset) gave a consistent 4-bar pattern (bars 5–8 repeat 1–4): E5 B5 G#4 F#5 B5 E5 B5 B5 / G#4 G#5 B5 D#5 … in C#m/E. |
+| Build | PASS | Track 37 "Arp WT": Wavetable poly, Saw Dual 1, unison Classic 2, Filter MS2 1.2 kHz + Env 2/Random → filter (pluck), Amp 2/300/−12 dB/200, Delay (ping-pong; "Ping Pong Delay" isn't a separate device in 10.1) + Reverb 25 %. 64-note clip. |
+| Tempo | FIXED by Dorian | Clip twice too fast: the 80 BPM loop plays as 160 BPM in the 175 set, so its 8ths are the set's quarters. Dorian pressed ×2 in the clip; delay moved to a dotted quarter. |
+| Lo-fi VHS | PASS | Dorian: "un effet vraiment lo-fi VHS, old school cassette". Added Saturator (+6 dB, soft clip), Redux (10 bit, soft 3), EQ Eight (HP 150 Hz / LP 5 kHz), Vinyl Distortion (tracing 0.15, crackle 0.15), LFO 2 → Pitch wow (0.6 Hz, free-running; raised from 0.004 to 0.008 on request). Dorian switched the table to Saw Harmonics himself. **Dorian: "on n'est vraiment pas très, très loin de l'original. C'est incroyable."** |
+
+## Findings (sample 2)
+
+7. **`analyze_sample` needs a loop/arp mode:** onset-driven notes with harmonic salience instead of pyin, for loops with delay/reverb tails (and octave sanity against the CQT).
+8. **Tempo relation:** a loop at half the set's tempo (80 vs 175 → played as 160) doubles every duration. The analysis should report the warped tempo relation and scale the clip (or Claude should ask how Live plays the loop).
+9. **A clip-edit command** (scale/replace notes of an existing clip) would have avoided the manual ×2.
+10. Live 10.1 has no "Ping Pong Delay" device: it's Delay with Ping Pong on.
