@@ -1,8 +1,8 @@
 # STATE
 
 ## Current Position
-- **Phase**: 5 (Workflow Foundations) complete; next is 6 (DnB Workflow)
-- **Plan**: Phase 6 not planned yet
+- **Phase**: 5 (Workflow Foundations) complete; Phase 6 skipped; next is 7 (Automation from Vibes)
+- **Plan**: Phase 7 not planned yet
 - **Task**: —
 - **Status**: phase 5 closed
 
@@ -25,9 +25,11 @@
 - Roadmap split (2026-10-20): Phase 5 = Workflow Foundations (UAT-4 fixes), Phase 6 = DnB Workflow, Phase 7 = Polish & Release
 - `analyze_master` autoplays + rejects partly-silent captures (Phase 5); "Reference" track deferred (Live 10 has no arrangement-clip API)
 
+- Roadmap change (2026-10-20): Phase 6 DnB Workflow skipped; new Phase 7 Automation from Vibes (recorded into Arrangement), Phase 8 Sound Reproduction (audio → MIDI + stock synth + effects); Polish → 9
+
 ## Blockers
 <!-- Anything preventing progress -->
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:plan 6`
+Run `/bolt:plan 7`

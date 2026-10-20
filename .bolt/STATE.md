@@ -9,4 +9,4 @@ v1
 | v1 | building (phase 5 complete) | — |
 
 ## Next Action
-Run `/bolt:plan 6`
+Run `/bolt:plan 7`

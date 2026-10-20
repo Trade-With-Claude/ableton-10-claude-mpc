@@ -59,9 +59,29 @@
   - [ ] R2: Auto gain staging toward the mix-bus target (−5/−6 LUFS-S) using meters + analysis
   - [ ] R3: Teaching explanation attached to every proposed change
 - **Success Criteria**: "Set up my drum bus" proposes, explains and applies a chain; a re-analysis shows the mix moving toward the target.
+- **Status**: skipped (2026-10-20). Dorian already knows his chains; revisit later, maybe in another form
+
+### Phase 7: Automation from Vibes
+- **Goal**: Dorian describes a movement in words; Claude writes it as real Arrangement automation by recording it.
+- **Requirements**:
+  - [ ] R1: Spike: confirm Live 10 records parameter changes made by the Remote Script into Arrangement automation (record mode + automation arm), and measure curve resolution/timing at 175 BPM
+  - [ ] R2: Beat-synced parameter player in the Remote Script: curve shapes (ramp, exponential, dip, LFO/wobble at a note value, steps) over a bar range, sampled per tick
+  - [ ] R3: "Vibe" → curve plan: Claude turns a description into curves on named params (e.g. Auto Filter frequency on ATMO), proposes, then records from a given bar
+  - [ ] R4: Load the target effect if missing (filter, distortion…) in the same flow; one Cmd+Z (or a clear undo path) removes the take
+- **Success Criteria**: "Filter slowly opening over 16 bars, wobble on the last 2" ends up as editable Arrangement automation on Dorian's session, matching the description by ear.
 - **Status**: pending
 
-### Phase 7: Polish & Release
+### Phase 8: Sound Reproduction
+- **Goal**: Dorian drops an audio file on a track (e.g. track 30) and says "try to reproduce this"; Claude builds a starting point from stock devices.
+- **Requirements**:
+  - [ ] R1: Find the audio file of a track's clip (session `file_path`, else the saved `.als`; Live 10 has no arrangement-clip API)
+  - [ ] R2: Audio → MIDI: notes, rhythm, key/scale (e.g. basic-pitch), cleaned and quantised to the tempo
+  - [ ] R3: Sound analysis → synth foundation: oscillator family, filter cutoff/envelope, amp envelope, unison/width; stock effects (filter, distortion, reverb…) where the analysis calls for them
+  - [ ] R4: Build it: new MIDI track, stock synth (Operator/Wavetable/Analog) with the settings, effect chain, pattern as a session clip; automation via Phase 7 where the sound moves
+- **Success Criteria**: On a sample Dorian picks, the result is recognisably the same pattern and in the same sound family, a usable starting point he can shape.
+- **Status**: pending
+
+### Phase 9: Polish & Release
 - **Goal**: Robust, documented, ready to open source.
 - **Requirements**:
   - [ ] R1: Reconnect/timeout handling; graceful errors when Live is closed or the surface isn't selected
