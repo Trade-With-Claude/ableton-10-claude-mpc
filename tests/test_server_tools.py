@@ -113,3 +113,15 @@ def test_invalid_batch_changes_nothing(fake_live):
         ]))
     vol = fake_live.song.tracks[0].mixer_device.volume
     assert vol.str_for_value(vol.value) == "0.0 dB" and fake_live.song.undo_begins == 0
+
+
+def test_chain_mixer_and_load_into_chain_via_apply(fake_live):
+    r = run(server.apply([
+        {"op": "chain_mixer", "kind": "track", "index": 3, "chain": [1, 1], "volume_db": -3},
+        {"op": "load_effect", "kind": "track", "index": 3, "name": "EQ Eight", "chain": [1, 1], "position": 0},
+    ]))
+    assert "error" not in r and r["applied"] == r["total"] == 2
+    assert r["results"][1]["changes"][0]["after"] == "EQ Eight at chain 'Mid' [0]"
+    chains = run(server.get_session())["tracks"][3]["devices"][1]["chains"]
+    assert chains[1]["volume"]["display"] == "-3.0 dB"
+    assert chains[1]["devices"][0]["name"] == "EQ Eight"

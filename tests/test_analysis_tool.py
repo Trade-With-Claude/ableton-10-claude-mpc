@@ -50,6 +50,11 @@ def wired(client, monkeypatch):
     monkeypatch.setattr(server, "live", client)
 
 
+@pytest.fixture(autouse=True)
+def no_preroll(monkeypatch):
+    monkeypatch.setattr(server, "PREROLL_S", 0)
+
+
 def run(coro):
     return asyncio.run(coro)
 
@@ -122,3 +127,51 @@ def test_sample_rate_mismatch_is_a_readable_tool_error(wired, monkeypatch):
 def test_live_errors_reach_claude_as_tool_errors(wired):
     with pytest.raises(ToolError, match="no return track 7"):
         run(server.get_device_params("return", 7, [0]))
+
+
+# -- Phase 5: autoplay + partial-silence rejection ------------------------------
+def _with_gap(seconds: int, silent_share: float) -> np.ndarray:
+    frames = _drop(seconds)
+    frames[: int(len(frames) * silent_share)] = 0.0
+    return frames
+
+
+@pytest.mark.parametrize("share, expected", [(0.0, 0.0), (0.3, 0.3), (1.0, 1.0)])
+def test_silence_fraction(share, expected):
+    assert analysis.silence_fraction(_with_gap(10, share), SR) == pytest.approx(expected, abs=0.011)
+
+
+def test_autoplay_starts_and_stops_live(wired, recorded, fake_live):
+    r = run(server.analyze_master(seconds=10))
+    assert fake_live.transport_calls == [True, False] and fake_live.playing is False
+    assert r["autoplay"] == "started" and r["silence_fraction"] == 0.0
+
+
+def test_autoplay_leaves_a_playing_live_alone(wired, recorded, fake_live):
+    fake_live.playing = True
+    r = run(server.analyze_master(seconds=10))
+    assert fake_live.transport_calls == [] and fake_live.playing is True
+    assert r["autoplay"] == "already_playing"
+
+
+def test_autoplay_off(wired, recorded, fake_live):
+    r = run(server.analyze_master(seconds=10, autoplay=False))
+    assert fake_live.transport_calls == [] and r["autoplay"] == "off"
+
+
+def test_autoplay_unknown_when_live_is_down(recorded, monkeypatch):
+    monkeypatch.setattr(server, "live", LiveClient(port=1, timeout=0.2))
+    assert run(server.analyze_master(seconds=10))["autoplay"] == "unknown"
+
+
+def test_partial_silence_is_rejected_and_playback_still_stopped(wired, fake_live, monkeypatch):
+    monkeypatch.setattr(capture, "record", lambda s, *a, **k: _with_gap(s, 0.3))
+    with pytest.raises(ToolError, match=r"30% of the capture is silent.*Loop a continuous section"):
+        run(server.analyze_master(seconds=10))
+    assert fake_live.transport_calls == [True, False]
+
+
+def test_small_gap_is_tolerated(wired, monkeypatch):
+    monkeypatch.setattr(capture, "record", lambda s, *a, **k: _with_gap(s, 0.05))
+    r = run(server.analyze_master(seconds=10))
+    assert r["silence_fraction"] == pytest.approx(0.05, abs=0.011)

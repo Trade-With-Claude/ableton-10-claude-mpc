@@ -11,6 +11,8 @@ from . import analysis
 from .client import LiveClient
 from .protocol import DEFAULT_PORT, LiveError
 
+PREROLL_S = 1.0  # after autoplay starts Live, let the section settle before recording
+
 mcp = MCPServer("claude-mpc")
 live = LiveClient(port=int(os.environ.get("CLAUDE_MPC_PORT", DEFAULT_PORT)))
 
@@ -52,7 +54,9 @@ async def get_session() -> dict:
     volume/pan and sends ({value, display}; sends are named after their return track),
     and its device chain. Each device has a `path` (its address within the track; racks
     list chains with nested devices, path = [rack, chain, device, ...]), class_name,
-    is_plugin, on/off and parameter count. Call this first to find addresses.
+    is_plugin, on/off and parameter count. Rack chains also show their mixer volume/pan
+    ({value, display}) and mute/solo; a chain's address is [rack path..., chain index].
+    Call this first to find addresses.
     """
     return await _call("get_session")
 
@@ -97,11 +101,18 @@ async def get_meters(reads: int = 10, interval_ms: int = 100) -> dict:
 
 
 @mcp.tool()
-async def analyze_master(seconds: int = 15, reference: str | None = None) -> dict:
+async def analyze_master(
+    seconds: int = 15, reference: str | None = None, autoplay: bool = True
+) -> dict:
     """Listen to the Live master: record `seconds` (10-60, default 15) from BlackHole 2ch and analyze.
 
-    The user must already be playing the section (e.g. a drop on loop) BEFORE you call;
-    the call blocks for `seconds` + ~2 s. Requires Live's output on BlackHole 2ch at 48 kHz.
+    With autoplay (default), if Live is stopped this starts playback (from Live's insert
+    marker, looping if the loop is on), waits ~1 s, records, then stops it again; if Live
+    is already playing it is left alone. So ask the user to set the loop (and insert
+    marker) on the section first, e.g. the drop. autoplay=False: the user plays it.
+    The call blocks for `seconds` + ~2-3 s. Requires Live's output on BlackHole 2ch at 48 kHz.
+    Captures more than 10 % silent are rejected (late start, stop, breakdown in the loop);
+    `silence_fraction` and `autoplay` ("started"|"already_playing"|"off") are reported.
     Returns loudness (LUFS-I over the capture, LUFS-S = last 3 s, true peak, PLR, crest;
     LRA needs >= 30 s), band zones in dB relative to total energy (sub 20-60, low 60-250,
     low_mid 250-500, mid 500-2k, high_mid 2-6k, air 6k-20k) plus 31 third-octave bands,
@@ -113,13 +124,31 @@ async def analyze_master(seconds: int = 15, reference: str | None = None) -> dic
     -4 LUFS-I). Explain results in DnB mixing terms and propose concrete changes.
     """
     try:
-        bpm = float((await _call("ping"))["tempo"])
+        status = await _call("ping")
+        bpm, playing = float(status["tempo"]), status.get("is_playing")
     except ToolError:
-        bpm = analysis.DEFAULT_BPM
+        bpm, playing = analysis.DEFAULT_BPM, None
+    started = False
+    if not autoplay:
+        mode = "off"
+    elif playing is False:
+        await _call("transport", {"play": True})
+        started, mode = True, "started"
+        await asyncio.sleep(PREROLL_S)
+    else:  # already playing, or Live unreachable / pre-0.4.0 script: leave the transport alone
+        mode = "already_playing" if playing else "unknown"
     try:
-        return await asyncio.to_thread(analysis.run, seconds, reference, bpm)
+        result = await asyncio.to_thread(analysis.run, seconds, reference, bpm)
     except analysis.AnalysisError as exc:
         raise ToolError(str(exc)) from exc
+    finally:
+        if started:
+            try:
+                await _call("transport", {"play": False})
+            except ToolError:
+                pass
+    result["autoplay"] = mode
+    return result
 
 
 # -- writes: every tool runs through `apply`, so each call is one Cmd+Z in Live --------
@@ -145,8 +174,11 @@ def _op(op: str, kind: str, index: int, **fields) -> dict:
 `ops` is a list of operations, each addressed by kind ("track"|"return"|"master") and index:
   {"op": "mixer", "kind", "index", "volume_db": -6, "pan": "25L"|-25, "sends": {"A-Reverb": -20}, "mute": true, "solo": false}
   {"op": "param", "kind", "index", "path": [0], "param": "Threshold"|3, "display": -12 | "High pass" | "on"}  (or "value": raw)
-  {"op": "load_effect", "kind", "index", "name": "EQ Eight", "position": null (end) | n}
+  {"op": "load_effect", "kind", "index", "name": "EQ Eight", "position": null (end) | n,
+   "chain": [rack path..., chain index] (optional: load inside that rack chain, position within it;
+   the chain must already hold a device)}
   {"op": "delete_device", "kind", "index", "path": [1]}
+  {"op": "chain_mixer", "kind", "index", "chain": [1, 0], "volume_db": -3, "pan": "10L", "mute": false, "solo": false}
 All ops are validated before anything is written: one bad op means nothing changes.
 """ + WRITE_POLICY)
 async def apply(ops: list[dict]) -> dict:

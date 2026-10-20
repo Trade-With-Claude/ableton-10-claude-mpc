@@ -17,7 +17,9 @@ class FakeLive:
     def __init__(self, chunk_size: int | None = None):
         self.chunk_size = chunk_size  # send replies in small pieces to exercise partial reads
         self.handlers = {
-            "ping": lambda p: {"live_version": "10.1.43", "tempo": 174.0, "script_version": "fake"},
+            "ping": lambda p: {"live_version": "10.1.43", "tempo": 174.0, "is_playing": self.playing,
+                               "script_version": "fake"},
+            "transport": self._transport,
             "echo": lambda p: p,
             "get_session": lambda p: lom.serialize_session(self.song),
             "get_device_params": self._device_params,
@@ -27,6 +29,8 @@ class FakeLive:
         self.song = dnb_song()
         self.loader = FakeLoader()
         self.meter_reads = 0
+        self.playing = False
+        self.transport_calls: list[bool] = []
         self._srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._srv.bind(("127.0.0.1", 0))
@@ -42,6 +46,11 @@ class FakeLive:
         device = lom.resolve_device(track, p.get("path"))
         return {"track": track.name, "device": lom.serialize_device(device, p.get("path")),
                 "params": lom.serialize_params(device, p.get("query"))}
+
+    def _transport(self, p):
+        self.transport_calls.append(bool(p["play"]))
+        self.playing = bool(p["play"])
+        return {"is_playing": self.playing}
 
     def _meters(self, p):
         # master peaks on the 2nd read only, to exercise peak-hold
