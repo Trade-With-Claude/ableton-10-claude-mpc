@@ -6,7 +6,7 @@ v1
 ## Version History
 | Version | Status | Git Tag |
 |---------|--------|---------|
-| v1 | building (phase 3 complete) | — |
+| v1 | building (phase 4 complete) | — |
 
 ## Next Action
-Run `/bolt:build 4`
+Run `/bolt:plan 5`

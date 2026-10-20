@@ -36,11 +36,11 @@
 ### Phase 4: Master Analysis
 - **Goal**: Claude "hears" the master on demand.
 - **Requirements**:
-  - [ ] R1: spectrum-advisor: `capture.record()` + `oneshot.analyze_buffer()`; Qt moved to `[ui]` extra
-  - [ ] R2: `analyze_master(seconds=15, reference=None)` MCP tool via `asyncio.to_thread`; reference fallback arg → last-used → none
-  - [ ] R3: Strict 48 kHz check, clear errors when BlackHole is missing
+  - [x] R1: spectrum-advisor: `capture.record()` + `oneshot.analyze_buffer()`; Qt moved to `[ui]` extra
+  - [x] R2: `analyze_master(seconds=15, reference=None)` MCP tool via `asyncio.to_thread`; reference fallback arg → last-used → none
+  - [x] R3: Strict 48 kHz check, clear errors when BlackHole is missing
 - **Success Criteria**: Dorian plays a drop; Claude reports LUFS-I/S, TP, PLR, spectrum balance, sub, stereo, and a diagnosis.
-- **Status**: pending
+- **Status**: complete
 
 ### Phase 5: DnB Workflow
 - **Goal**: One-command mixing helpers built on phases 2–4.
