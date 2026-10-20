@@ -50,7 +50,7 @@
   - [ ] R3: Rack chains: read and set chain volume/pan/mute/solo; load a stock effect inside a rack chain
   - [ ] R4: Loading a device restores the `fold_state` of the target track and its parent groups
 - **Success Criteria**: On Dorian's session, analyze_master runs from a stopped transport, a batch edits a rack chain and reverts with one Cmd+Z, and groups stay folded.
-- **Status**: pending
+- **Status**: complete
 
 ### Phase 6: DnB Workflow
 - **Goal**: One-command mixing helpers built on phases 2–5.
