@@ -7,7 +7,7 @@ import time
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from . import analysis
+from . import analysis, sound
 from .client import LiveClient
 from .protocol import DEFAULT_PORT, LiveError
 
@@ -152,6 +152,35 @@ async def analyze_master(
                 pass
     result["autoplay"] = mode
     return result
+
+
+@mcp.tool()
+async def analyze_sample(path_or_name: str, tempo: float | None = None) -> dict:
+    """Listen to an audio file (a lead, bass or one-shot line, max 30 s) to reproduce it with a
+    stock synth. `path_or_name` = an absolute path, or a file name found with Spotlight (Live 10
+    can't tell which file an Arrangement clip plays, so ask the user for the sample's name).
+    `tempo` defaults to the BPM in the file name, else an estimate; give the set's tempo if the
+    sample was warped to it.
+
+    Monophonic: one note at a time (chords, pads and full loops come out wrong). Returns
+    notes [{pitch, name, start_beat, length_beats, velocity, glide_from}] quantised to 1/16,
+    key (from the notes; key_from_name is the file-name hint), timbre (osc sine|triangle|
+    square|saw, harmonics_db re the fundamental, resonance = a filter peak lifting harmonics,
+    cutoff_hz, brightness_move within notes, noise), amp envelope (attack/decay ms, sustain
+    0-1, release ms) and stereo width. `glide_from` = the note slides in from that pitch;
+    `octave_check` = the note may sound an octave higher. Show the user what you hear
+    (notes per bar, rhythm, sound) before building anything.
+    """
+    try:
+        hits = await asyncio.to_thread(sound.find_sample, path_or_name)
+        if not hits:
+            raise ToolError(f"no audio file named {path_or_name!r} found (give the full path)")
+        exact = [h for h in hits if os.path.basename(h) in (path_or_name, os.path.basename(path_or_name))]
+        if len(hits) > 1 and len(exact) != 1:
+            raise ToolError("several files match, give the full path: " + "; ".join(hits[:10]))
+        return await asyncio.to_thread(sound.analyze_sample, (exact or hits)[0], tempo)
+    except sound.SoundError as exc:
+        raise ToolError(str(exc)) from exc
 
 
 # -- writes: every tool runs through `apply`, so each call is one Cmd+Z in Live --------

@@ -8,7 +8,8 @@
       "mcp__claude-mpc__get_session",
       "mcp__claude-mpc__get_device_params",
       "mcp__claude-mpc__get_meters",
-      "mcp__claude-mpc__analyze_master"
+      "mcp__claude-mpc__analyze_master",
+      "mcp__claude-mpc__analyze_sample"
     ]
   }
 }

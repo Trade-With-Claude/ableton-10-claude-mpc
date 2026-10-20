@@ -56,7 +56,8 @@ def test_get_meters_peak_hold():
     assert "MIDI only" not in [m["name"] for m in r["meters"]]
 
 
-READ_TOOLS = {"ping", "get_session", "get_device_params", "get_meters", "analyze_master"}
+READ_TOOLS = {"ping", "get_session", "get_device_params", "get_meters", "analyze_master",
+              "analyze_sample"}
 WRITE_TOOLS = {"apply", "set_mixer", "set_device_param", "load_effect", "delete_device",
                "record_automation"}
 
@@ -211,3 +212,28 @@ def test_record_automation_cancel_aborts(take):
             await task
     run(cancel_soon())
     assert take.abort_calls == 1 and not take.song.record_mode
+
+
+def test_analyze_sample_resolves_name(monkeypatch):
+    calls = []
+    monkeypatch.setattr(server.sound, "find_sample", lambda n: ["/s/lead.wav", "/s/old/lead 2.wav"])
+    monkeypatch.setattr(server.sound, "analyze_sample",
+                        lambda p, t: calls.append((p, t)) or {"file": p, "notes": []})
+    assert run(server.analyze_sample("lead.wav", tempo=174))["file"] == "/s/lead.wav"
+    assert calls == [("/s/lead.wav", 174)]
+
+
+def test_analyze_sample_errors(monkeypatch):
+    monkeypatch.setattr(server.sound, "find_sample", lambda n: [])
+    with pytest.raises(ToolError, match="no audio file"):
+        run(server.analyze_sample("nope"))
+    monkeypatch.setattr(server.sound, "find_sample", lambda n: ["/a/lead.wav", "/b/lead.wav"])
+    with pytest.raises(ToolError, match="several files"):
+        run(server.analyze_sample("lead"))
+
+    def silent(p, t):
+        raise server.sound.SoundError("lead.wav is silent")
+    monkeypatch.setattr(server.sound, "find_sample", lambda n: ["/a/lead.wav"])
+    monkeypatch.setattr(server.sound, "analyze_sample", silent)
+    with pytest.raises(ToolError, match="silent"):
+        run(server.analyze_sample("lead"))
