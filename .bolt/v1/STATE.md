@@ -1,10 +1,10 @@
 # STATE
 
 ## Current Position
-- **Phase**: 5 (Workflow Foundations) complete; Phase 6 skipped; next is 7 (Automation from Vibes)
-- **Plan**: Phase 7 not planned yet
-- **Task**: —
-- **Status**: phase 5 closed
+- **Phase**: 7 (Automation from Vibes)
+- **Plan**: created (07-01-PLAN.md)
+- **Task**: 0/3
+- **Status**: planned
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -32,4 +32,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:plan 7`
+Run `/bolt:build 7`
