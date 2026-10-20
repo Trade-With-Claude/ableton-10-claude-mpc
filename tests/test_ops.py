@@ -35,7 +35,8 @@ def glue(song):
                                  ("25L", -25.0), ("10R", 10.0), ("1.20 kHz", 1200.0),
                                  ("200 Hz", 200.0), ("100 %", 100.0), (".1", 0.1),
                                  ("22.0k", 22000.0), ("1.5k", 1500.0), ("856", 856.0),
-                                 ("59 ms", 59.0), ("15.0 s", 15000.0), ("1.00 ms", 1.0)])
+                                 ("59 ms", 59.0), ("15.0 s", 15000.0), ("1.00 ms", 1.0),
+                                 ("1/8", 0.125), ("1/48", 1 / 48), ("3/16", 0.1875)])
 def test_parse_display(s, n):
     assert ops.parse_display(s) == n
 
@@ -48,6 +49,14 @@ def test_time_param_mixing_ms_and_s():
     p = Param("AEG1 Attack", 0.0, 0.0, 1.0, fmt=fmt)
     assert ops.parse_display(p.str_for_value(ops.value_for(p, display=60))) == pytest.approx(60, abs=2)
     assert p.str_for_value(ops.value_for(p, display="2 s")) == "2.0 s"
+
+
+def test_synced_rate_fractions():
+    """Operator's LFO Sync shows '1/48' .. '8': display='1/8' landed on 1/48 (UAT-8 bug)."""
+    items = ["1/48", "1/32", "1/24", "1/16", "1/12", "1/8", "1/6", "1/4", "1/3", "1/2", "1", "2", "4", "8"]
+    p = Param("LFO Sync", 3.0, 0.0, 13.0, fmt=lambda v: items[int(round(v))])
+    assert p.str_for_value(ops.value_for(p, display="1/8")) == "1/8"
+    assert p.str_for_value(ops.value_for(p, display="2")) == "2"
 
 
 def test_volume_db_and_inf(song):

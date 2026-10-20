@@ -26,6 +26,7 @@ except (ImportError, ValueError):  # tests import it as a top-level module
 
 _text = lom._text
 _NUM = re.compile(r"[-+]?(\d+\.?\d*|\.\d+)")
+_FRACTION = re.compile(r"^\s*(\d+)\s*/\s*(\d+)")  # synced rates: '1/8', '1/16'
 _PAN = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([LR])\s*$", re.I)
 BISECT_STEPS = 40
 # Some plugins (e.g. kHs) display a typographic minus or an en dash instead of '-'.
@@ -35,13 +36,16 @@ _MINUS = {0x2212: u"-", 0x2013: u"-"}
 # -- display units <-> raw values ------------------------------------------
 def parse_display(s):
     """Leading number of a display string: '-12.0 dB' -12, '1.20 kHz' and '1.2k' 1200,
-    '1.50 s' 1500 (times in ms), '25L' -25, 'C' 0."""
+    '1.50 s' 1500 (times in ms), '1/8' 0.125, '25L' -25, 'C' 0."""
     s = _text(s).strip().translate(_MINUS)
     low = s.lower()
     if low.startswith(u"-inf"):
         return float("-inf")
     if low in (u"c", u"center", u"centre"):
         return 0.0
+    m = _FRACTION.match(s)
+    if m and int(m.group(2)):
+        return float(m.group(1)) / float(m.group(2))
     m = _PAN.match(s)
     if m:
         n = float(m.group(1))
