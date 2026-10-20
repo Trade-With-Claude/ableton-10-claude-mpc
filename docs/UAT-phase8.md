@@ -41,3 +41,13 @@ Undo: each build/settings call is one Cmd+Z (track creation = one step). Not exe
 8. **Tempo relation:** a loop at half the set's tempo (80 vs 175 → played as 160) doubles every duration. The analysis should report the warped tempo relation and scale the clip (or Claude should ask how Live plays the loop).
 9. **A clip-edit command** (scale/replace notes of an existing clip) would have avoided the manual ×2.
 10. Live 10.1 has no "Ping Pong Delay" device: it's Delay with Ping Pong on.
+
+## Sample 3: track 35 kick "TSP_SL_kick_bigroller" (not reproducible this way)
+Measured: 160 ms, mono, sine body ending ~62 Hz (B1), pitch drop 165 → 62 Hz over ~100 ms, mid "knock" in the first 6 ms. Built as two Wavetable layers (sine + Env 2 → Pitch, band-passed noise click), then Drum Buss, Saturator and a Glue on the group. Dorian: first "kick de tutoriel", then "trop boomy". Verdict: drawing kicks/snares this way isn't viable. A Kick 3-style designer went into the roadmap's future ideas. Live 10 can't create rack chains or group tracks from a script.
+
+## Sample 4: track 35 pad "BOS_AA_80_Synth_Pad_Loop_Visions_C#m" (chords)
+- **Chords:** read by hand with a CQT peak analysis per 2 beats (`analyze_sample` is monophonic). Amaj7 → G#m(add11) → C# → G#7sus4, with durations doubled for the 80 → 160 BPM relation. Built as "Pad WT": Wavetable, Saw Dual 2, Shimmer unison, LP 900 Hz, slow attack, Chorus, Reverb 4 s.
+- **Composition:** Dorian asked for a 32-bar progression of 8 chords (4 bars each), keeping the 4 original chords and inventing 4 new ones: F#m9 → Emaj7/G# → Amaj7(#11) → G#7(b9). This took two clarifications: a separate 8-bar continuation first, then a 4-phrase plan, both wrong.
+- **Bug:** a filter jump at every chord change, from the LFO retriggering on each note. Fixed by turning "LFO 1 Retrigger" Off; the recipe now says so.
+- **Dorian: "Fucking amazing pad… It's so freaking good."** (after his own tweaks)
+- **Missing:** a command to add a clip to an existing track. Each variant needed a new track with the patch copied over.
