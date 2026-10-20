@@ -4,7 +4,7 @@
 - **Phase**: 7 (Automation from Vibes)
 - **Plan**: created (07-01-PLAN.md)
 - **Task**: 3/3
-- **Status**: partial (AC-3: stop-mid-take not run live)
+- **Status**: complete (AC-3 gaps accepted by Dorian)
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -13,7 +13,7 @@
 - Phase 3 (Mixer & Device Control): complete, 3/3 ACs PASS (2026-10-14). 4-op batch incl. EQ Eight load applied in 110 ms, reverted by ONE Cmd+Z. Findings: load unfolds groups (fold not restored), auto-named returns rename on device change, bare error on missing device path.
 - Phase 4 (Master Analysis): complete, 3/3 ACs PASS (2026-10-20; AC-2 lock-grep hit is extra metadata only, AC-3 dpMeter5 by eye). Real drop analysed in 16.5 s; analysis-driven batch measurably closed the 250–500 Hz gap vs reference. 9 findings in docs/UAT-phase4.md.
 - Phase 5 (Workflow Foundations): complete, 3/3 ACs PASS (2026-10-20). Remote Script 0.4.0: U+2212 fix, chain mixer + load into chains (227 ms batch, one Cmd+Z), fold restore, autoplay analyze_master (16.6 s, silence 0 %), partial-silence rejection (76 % → error). docs/UAT-phase5.md.
-- Phase 7 (Automation from Vibes): partial, AC-1/AC-2 PASS, AC-3 PARTIAL (2026-10-20). Remote Script 0.5.1: record_automation records curves into the Arrangement (~10 Hz, ~3 points/beat at 175 BPM), one Cmd+Z per take. Vibes "pluck" and dip+wobble approved by ear. Abort not tested live. docs/UAT-phase7.md.
+- Phase 7 (Automation from Vibes): complete, AC-1/AC-2 PASS, AC-3 PARTIAL accepted by Dorian (2026-10-20). Remote Script 0.5.1: record_automation records curves into the Arrangement (~10 Hz, ~3 points/beat at 175 BPM), one Cmd+Z per take. Vibes "pluck" and dip+wobble approved by ear. Abort not tested live. docs/UAT-phase7.md.
 
 ## Recent Decisions
 <!-- Last 3-5 decisions, older ones move to PROJECT.md -->
@@ -34,4 +34,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Stop-mid-take test in Live (4-bar take, Dorian presses Stop at bar ~66), then mark Phase 7 AC-3 PASS and `/bolt:plan 8`
+Run `/bolt:plan 8`

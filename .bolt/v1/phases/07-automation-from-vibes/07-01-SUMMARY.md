@@ -26,7 +26,9 @@
 - No files changed outside the plan, apart from the `ping` addition in `commands.py` and `server.py`, which were already in the plan's file lists.
 
 ## Phase Complete?
-PARTIAL. The goal is met in practice. Dorian describes a movement, Claude turns it into curves and records them as real, editable Arrangement automation, and one Cmd+Z removes a take. AC-3 isn't fully verified live: stopping mid-take, two lanes in one take, the 16-bar breakpoint count and the track-arm restore were not seen in Live.
+YES, accepted by Dorian with the AC-3 gaps (2026-10-20). The goal is met in practice. Dorian describes a movement, Claude turns it into curves and records them as real, editable Arrangement automation, and one Cmd+Z removes a take. Dorian waived the live stop-mid-take test ("je pense pas qu'il y ait besoin de tester ça"). Abort stays covered by unit and server tests.
+
+Intended use (Dorian): put the cursor on the start point and ask for automation over 4, 8 or more bars, up to a whole sample. Live 10 can't read Arrangement clip lengths (`arrangement_clips` came with Live 11), so Dorian gives the bar count. A take lasts in real time: 16 bars ≈ 22 s at 175 BPM.
 
 ## Next Action
-Run the stop-mid-take test in Live (one 4-bar take, Dorian presses Stop around bar 66–67), then mark AC-3 PASS
+Run `/bolt:plan 8`
