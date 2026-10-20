@@ -1,10 +1,10 @@
 # STATE
 
 ## Current Position
-- **Phase**: 7 (Automation from Vibes)
-- **Plan**: created (07-01-PLAN.md)
-- **Task**: 3/3
-- **Status**: complete (AC-3 gaps accepted by Dorian)
+- **Phase**: 8 (Sound Reproduction)
+- **Plan**: created (08-01-PLAN.md)
+- **Task**: 0/3
+- **Status**: planned
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -34,4 +34,4 @@
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:plan 8`
+Run `/bolt:build 8`
