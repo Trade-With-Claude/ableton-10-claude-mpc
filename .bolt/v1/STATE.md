@@ -3,8 +3,8 @@
 ## Current Position
 - **Phase**: 8 (Sound Reproduction)
 - **Plan**: created (08-01-PLAN.md)
-- **Task**: 3/3 (UAT done, docs/UAT-phase8.md; unison fix installed, loads on next Live restart)
-- **Status**: build complete
+- **Task**: 3/3
+- **Status**: complete
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -14,6 +14,7 @@
 - Phase 4 (Master Analysis): complete, 3/3 ACs PASS (2026-10-20; AC-2 lock-grep hit is extra metadata only, AC-3 dpMeter5 by eye). Real drop analysed in 16.5 s; analysis-driven batch measurably closed the 250–500 Hz gap vs reference. 9 findings in docs/UAT-phase4.md.
 - Phase 5 (Workflow Foundations): complete, 3/3 ACs PASS (2026-10-20). Remote Script 0.4.0: U+2212 fix, chain mixer + load into chains (227 ms batch, one Cmd+Z), fold restore, autoplay analyze_master (16.6 s, silence 0 %), partial-silence rejection (76 % → error). docs/UAT-phase5.md.
 - Phase 7 (Automation from Vibes): complete, AC-1/AC-2 PASS, AC-3 PARTIAL accepted by Dorian (2026-10-20). Remote Script 0.5.1: record_automation records curves into the Arrangement (~10 Hz, ~3 points/beat at 175 BPM), one Cmd+Z per take. Vibes "pluck" and dip+wobble approved by ear. Abort not tested live. docs/UAT-phase7.md.
+- Phase 8 (Sound Reproduction): complete, 3/3 ACs PASS (2026-10-20). Remote Script 0.6.1: analyze_sample (pyin, glides), create_instrument_track (one undo step), get/set_wavetable (tables, mono, unison, mod matrix). Test lead and track-37 arp reproduced on Wavetable ("pas très loin de l'original"). Follow-ups: arp/loop analysis mode, tempo relation, clip editing. docs/UAT-phase8.md.
 
 ## Recent Decisions
 <!-- Last 3-5 decisions, older ones move to PROJECT.md -->
@@ -28,10 +29,12 @@
 
 - Roadmap change (2026-10-20): Phase 6 DnB Workflow skipped; new Phase 7 Automation from Vibes (recorded into Arrangement), Phase 8 Sound Reproduction (audio → MIDI + stock synth + effects); Polish → 9
 - Automation is recorded, not drawn: start from `ping.position_bar`; plucks/LFOs no faster than ½ bar at 175 BPM, faster goes to a device LFO/envelope
+- Sound reproduction uses Wavetable by default (Dorian); clips land in Session View (tell him Cmd+C / Tab / Cmd+V)
+- basic-pitch ruled out (py3.13 / gliding leads); pyin for monophonic, onset+salience needed for arps/loops
 
 ## Blockers
 <!-- Anything preventing progress -->
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:close` for Phase 8
+Run `/bolt:plan 9`

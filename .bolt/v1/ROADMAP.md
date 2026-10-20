@@ -79,7 +79,7 @@
   - [ ] R3: Sound analysis → synth foundation: oscillator family, filter cutoff/envelope, amp envelope, unison/width; stock effects (filter, distortion, reverb…) where the analysis calls for them
   - [ ] R4: Build it: new MIDI track, stock synth (Operator/Wavetable/Analog) with the settings, effect chain, pattern as a session clip; automation via Phase 7 where the sound moves
 - **Success Criteria**: On a sample Dorian picks, the result is recognisably the same pattern and in the same sound family, a usable starting point he can shape.
-- **Status**: pending
+- **Status**: complete (2026-10-20)
 
 ### Phase 9: Polish & Release
 - **Goal**: Robust, documented, ready to open source.
@@ -87,5 +87,6 @@
   - [ ] R1: Reconnect/timeout handling; graceful errors when Live is closed or the surface isn't selected
   - [ ] R2: README (install, Control Surface slot, BlackHole setup) + MIT attribution to ahujasid
   - [ ] R3: Full UAT pass in a real session; spectrum-advisor made public
+  - [ ] R4: Phase 8 follow-ups: `analyze_sample` arp/loop mode (onsets + harmonic salience, octave check), loop tempo relation (half/double time → scale the clip), clip-edit command (scale/replace/transpose notes)
 - **Success Criteria**: A fresh install by following the README works first time.
 - **Status**: pending
