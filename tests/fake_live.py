@@ -13,6 +13,7 @@ import build  # noqa: E402
 import lom  # noqa: E402
 import ops  # noqa: E402
 import recorder  # noqa: E402
+import wavetable  # noqa: E402
 
 
 class FakeLive:
@@ -32,6 +33,8 @@ class FakeLive:
             "automation_abort": self._automation_abort,
             "create_instrument_track": lambda p: build.create_instrument_track(
                 self.song, self.loader, **p),
+            "wavetable_get": lambda p: wavetable.read(self._dev(p)),
+            "wavetable_set": lambda p: wavetable.apply(self.song, self._dev(p), p["settings"]),
         }
         self.recorder = recorder.Recorder()
         self.ticks_per_poll = 5  # update_display ticks simulated per status poll
@@ -50,6 +53,9 @@ class FakeLive:
         self._stop = False
         self._thread = threading.Thread(target=self._serve, daemon=True)
         self._thread.start()
+
+    def _dev(self, p):
+        return lom.resolve_device(lom.resolve_track(self.song, p["kind"], p.get("index", 0)), p.get("path"))
 
     def _device_params(self, p):
         track = lom.resolve_track(self.song, p["kind"], p.get("index", 0))

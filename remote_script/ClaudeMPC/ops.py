@@ -34,7 +34,8 @@ _MINUS = {0x2212: u"-", 0x2013: u"-"}
 
 # -- display units <-> raw values ------------------------------------------
 def parse_display(s):
-    """Leading number of a display string: '-12.0 dB' -12, '1.20 kHz' 1200, '25L' -25, 'C' 0."""
+    """Leading number of a display string: '-12.0 dB' -12, '1.20 kHz' and '1.2k' 1200,
+    '1.50 s' 1500 (times in ms), '25L' -25, 'C' 0."""
     s = _text(s).strip().translate(_MINUS)
     low = s.lower()
     if low.startswith(u"-inf"):
@@ -49,7 +50,10 @@ def parse_display(s):
     if not m:
         raise ValueError(u"no number in display %r" % s)
     n = float(m.group(0))
-    if u"khz" in low:
+    unit = low[m.end():].strip()
+    if unit.startswith(u"khz") or unit == u"k":  # '1.20 kHz', Analog's '1.5k'
+        n *= 1000.0
+    elif unit in (u"s", u"sec"):  # times switch from 'ms' to 's': compare them in ms
         n *= 1000.0
     return n
 

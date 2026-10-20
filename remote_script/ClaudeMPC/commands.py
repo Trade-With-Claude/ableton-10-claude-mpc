@@ -9,9 +9,10 @@ import Live
 from . import build
 from . import lom
 from . import ops as batch
+from . import wavetable
 from .recorder import Recorder
 
-SCRIPT_VERSION = "0.6.0"
+SCRIPT_VERSION = "0.6.1"
 
 
 class Commands(object):
@@ -30,6 +31,8 @@ class Commands(object):
             "automation_status": self.automation_status,
             "automation_abort": self.automation_abort,
             "create_instrument_track": self.create_instrument_track,
+            "wavetable_get": self.wavetable_get,
+            "wavetable_set": self.wavetable_set,
         }
 
     @property
@@ -108,6 +111,15 @@ class Commands(object):
         result = build.create_instrument_track(self.song, self.loader, name, instrument, index, clip)
         result["elapsed_ms"] = round((time.time() - t0) * 1000, 1)
         return result
+
+    def _device(self, kind, index, path):
+        return lom.resolve_device(lom.resolve_track(self.song, kind, index), path)
+
+    def wavetable_get(self, kind, index=0, path=None):
+        return wavetable.read(self._device(kind, index, path))
+
+    def wavetable_set(self, kind, index=0, path=None, settings=None):
+        return wavetable.apply(self.song, self._device(kind, index, path), settings)
 
     def apply(self, ops):
         t0 = time.time()

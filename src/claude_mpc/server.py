@@ -350,25 +350,27 @@ Returns track_index (address it with kind "track" in apply / set_device_param /
 get_device_params; the instrument is device_path [0]) and the clip summary.
 
 Reproducing a sample (after analyze_sample; show the transcription and the sound plan first):
-- Notes: analyze_sample's notes as they are (start_beat/length_beats are clip beats; shift
-  by the sample's start if needed). Clip length = whole bars covering the sample.
-- Glides (`glide_from`): Live 10 can't write pitch bend. Make the note before it overlap the
-  gliding note (legato, extend its length to the next start + 1/16) and turn on the synth's
-  glide/portamento (Analog: Glide on + Legato, time ~ the slide length; Operator: Glide).
-  Glides from a note that isn't played (first note of a phrase) need a pitch envelope
-  instead (e.g. Analog Pitch Env / Operator Pitch Env: start at -(semitones), short decay).
-- Oscillator: osc saw/square -> Analog Osc1 Saw/Rectangle (square = pulse width 50 %),
-  Wavetable "Basic Shapes"; sine/triangle -> Operator (Osc A Sine; triangle = soft saw/
-  low cutoff). Two detuned oscillators (or unison) + Chorus when stereo width is "wide".
-- Filter: cutoff_hz -> low-pass frequency; `resonance` (a peak lifting harmonics) -> raise
-  filter resonance and put the cutoff near resonance.hz; "open" -> filter mostly open.
-  brightness_move rises/falls -> filter envelope amount up/down (or Phase 7 automation).
-- Amp envelope: attack/decay ms, sustain 0-1, release ms map straight onto the synth's amp
-  ADSR (display units are ms and %/dB, check with get_device_params).
-- Noise "some"/"noisy" -> noise oscillator low in the mix. Stereo "wide" -> Chorus after the
-  synth; "mono" -> nothing.
-- Parameter names differ per synth: read them with get_device_params (use `query`) before
-  setting them, then send all settings + effects in ONE apply batch (one Cmd+Z).
+- Synth: use **Wavetable** (Dorian's preference: far more waves than Analog/Operator). Its
+  wavetables, mono, unison and modulation matrix are set with set_wavetable; the rest
+  (transpose, wavetable position, filters, envelopes, LFOs, glide, volume) are ordinary
+  parameters: read them with get_device_params, set them in ONE apply batch.
+- Notes: analyze_sample's notes (start_beat/length_beats are clip beats). Clip length =
+  whole bars covering the sample. The clip lands in Session View: tell the user to copy it
+  to the Arrangement (select clip, Cmd+C, Tab, click the track at the bar, Cmd+V).
+- Glides (`glide_from`): Live 10 can't write pitch bend. Into a played note: overlap the
+  notes (legato) + Wavetable mono + Glide (ms). From a note that isn't played: modulate
+  "Osc 1 Transp" (and Osc 2) from Env 2 with a negative amount (Env 2: Attack 0, short
+  Decay ~ the slide length, Sustain 0, Peak 100 %); Osc 1 Transp spans +-24 st over the
+  amount, so -2 st ~ -0.08.
+- Oscillator: saw/square -> a table with that shape (Basics: "Basic Shapes" and its
+  position, or the Synth/Analog categories); move Osc Pos to brighten. Stereo "wide" ->
+  unison (Classic/Shimmer, 3-4 voices, Unison Amount) or osc 2 detuned; "mono" -> none.
+- Filter: cutoff_hz -> Filter 1 Lowpass Freq; `resonance` (a peak lifting harmonics) ->
+  raise Res and put the cutoff near resonance.hz; "open" -> filter mostly open.
+  brightness_move rises/falls -> Env 2/3 -> Filter 1 Freq (or Phase 7 automation).
+- Amp envelope: attack/decay ms, sustain, release ms -> Amp Attack/Decay/Sustain/Release
+  (times in ms: display 60 = 60 ms even when Live shows seconds).
+- Noise "some"/"noisy" -> Osc 2 on a noise-ish table, low gain.
 Then let the user A/B the clip against the sample and adjust by ear.
 """ + WRITE_POLICY)
 async def create_instrument_track(
@@ -380,6 +382,35 @@ async def create_instrument_track(
     if clip is not None:
         params["clip"] = clip
     return await _call("create_instrument_track", params)
+
+
+@mcp.tool()
+async def get_wavetable(kind: str, index: int, device_path: list[int]) -> dict:
+    """Read Wavetable's settings that are NOT device parameters: wavetable category and table
+    per oscillator (plus the tables of the current category and all categories), oscillator
+    effect mode, mono/poly, unison mode and voices, filter routing and the modulation matrix
+    (targets x sources with amounts). Knobs (filter freq, envelopes, Osc Pos...) are in
+    get_device_params.
+    """
+    return await _call("wavetable_get", {"kind": kind, "index": index, "path": device_path})
+
+
+@mcp.tool(description="""Set Wavetable's own settings (one undo step): wavetables, effect modes,
+mono/poly, unison, filter routing and modulation-matrix amounts. Only the keys you give change:
+  {"osc1": {"category": "Basics", "table": "Basic Shapes", "effect_mode": "Classic"},
+   "osc2": {...}, "mono": true, "poly_voices": 8,
+   "unison": {"mode": "Classic"|"Shimmer"|"Noise"|"Phase Sync"|"Position Spread"|"Random Note"|"None",
+              "voices": 2-8},
+   "filter_routing": "Serial"|"Parallel"|"Split",
+   "modulation": [{"target": "Osc 1 Transp", "source": "Env 2", "amount": -0.08}]}
+Names are case-insensitive (a unique substring works); categories and tables come from
+get_wavetable. Modulation sources: Env 1 (amp), Env 2, Env 3, LFO 1, LFO 2, Velocity, Note,
+Pitch Bend, Pressure, Mod Wheel, Random; amount -1..1; a target that isn't in the matrix yet
+is added by its parameter name. Returns the changes and the new state.
+""" + WRITE_POLICY)
+async def set_wavetable(kind: str, index: int, device_path: list[int], settings: dict) -> dict:
+    return await _call("wavetable_set", {"kind": kind, "index": index, "path": device_path,
+                                         "settings": settings})
 
 
 def main() -> None:

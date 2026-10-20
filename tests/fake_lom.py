@@ -241,7 +241,10 @@ class FakeLoader:
     def load_instrument(self, track, name):
         if self.fail:
             raise RuntimeError("browser exploded")
-        dev = Device(name, self.INSTRUMENTS[name.lower()], type=1)
+        if name.lower() == "wavetable":
+            dev = FakeWavetable()
+        else:
+            dev = Device(name, self.INSTRUMENTS[name.lower()], type=1)
         track.devices.append(dev)
         self.loads.append((track.name, name, 0))
         return dev
@@ -297,3 +300,48 @@ def dnb_song():
                             Device("kHs Limiter", "PluginDevice", [khs_output_gain()])])
     midi_fx = Track("MIDI only", midi=True, audio_out=False)
     return Song([drums, kick, snare, bass, midi_fx], [ret_a, ret_b], master)
+
+
+class FakeWavetable(Device):
+    """Live 10.1 WavetableDevice: wavetables, voices and the modulation matrix outside `parameters`."""
+    TABLES = {"Basics": ["Basic Shapes", "Sine Saw", "Pulse Width"],
+              "Synth": ["Analog Saw", "Bright Lead", "Hollow"]}
+
+    def __init__(self):
+        super().__init__("Wavetable", "InstrumentVector",
+                         [Param("Osc 1 Transp", 0.0, -24.0, 24.0), Param("Osc 1 Pos", 0.0),
+                          Param("Filter 1 Freq", 1.0), Param("Volume", 0.6)], type=1)
+        self.oscillator_wavetable_categories = list(self.TABLES)
+        self.oscillator_1_wavetable_category = 0
+        self.oscillator_1_wavetable_index = 0
+        self.oscillator_2_wavetable_category = 0
+        self.oscillator_2_wavetable_index = 0
+        self.oscillator_1_effect_mode = 0
+        self.oscillator_2_effect_mode = 0
+        self.mono_poly = 1
+        self.poly_voices = 6
+        self.unison_mode = 0
+        self.unison_voice_count = 0
+        self.filter_routing = 0
+        self.visible_modulation_target_names = ["Filter 1 Freq"]
+        self.matrix = {}
+
+    @property
+    def oscillator_1_wavetables(self):
+        return self.TABLES[self.oscillator_wavetable_categories[self.oscillator_1_wavetable_category]]
+
+    @property
+    def oscillator_2_wavetables(self):
+        return self.TABLES[self.oscillator_wavetable_categories[self.oscillator_2_wavetable_category]]
+
+    def get_modulation_value(self, target, source):
+        return self.matrix.get((self.visible_modulation_target_names[target], source), 0.0)
+
+    def set_modulation_value(self, target, source, value):
+        self.matrix[(self.visible_modulation_target_names[target], source)] = value
+
+    def is_parameter_modulatable(self, param):
+        return param.name != "Volume"
+
+    def add_parameter_to_modulation_matrix(self, param):
+        self.visible_modulation_target_names.append(param.name)

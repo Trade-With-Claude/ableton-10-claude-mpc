@@ -57,9 +57,10 @@ def test_get_meters_peak_hold():
 
 
 READ_TOOLS = {"ping", "get_session", "get_device_params", "get_meters", "analyze_master",
-              "analyze_sample"}
+              "analyze_sample", "get_wavetable"}
 WRITE_TOOLS = {"apply", "set_mixer", "set_device_param", "load_effect", "delete_device",
-               "record_automation", "create_instrument_track"}
+               "record_automation", "create_instrument_track",
+               "set_wavetable"}
 
 
 def test_tools_registered():
@@ -258,3 +259,15 @@ def test_create_instrument_track_errors(fake_live):
         run(server.create_instrument_track("Lead", "Analog", clip={
             "length_beats": 4, "notes": [{"pitch": 128, "start_beat": 0, "length_beats": 1}]}))
     assert len(fake_live.song.tracks) == 5
+
+
+def test_wavetable_tools(fake_live):
+    r = run(server.create_instrument_track("Lead WT", "Wavetable"))
+    i = r["track_index"]
+    got = run(server.get_wavetable("track", i, [0]))
+    assert got["osc1"]["table"] == "Basic Shapes"
+    r = run(server.set_wavetable("track", i, [0], {"mono": True, "osc1": {"table": "sine saw"}}))
+    assert r["applied"] == 2 and r["state"]["mono"] is True
+    assert r["state"]["osc1"]["table"] == "Sine Saw"
+    with pytest.raises(ToolError, match="not a Wavetable"):
+        run(server.get_wavetable("track", 0, [0]))

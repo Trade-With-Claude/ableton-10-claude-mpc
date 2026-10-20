@@ -9,7 +9,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "remote_script" / 
 import lom  # noqa: E402
 import ops  # noqa: E402
 
-from fake_lom import FakeLoader, dnb_song  # noqa: E402
+from fake_lom import FakeLoader, Param, dnb_song  # noqa: E402
 
 
 @pytest.fixture
@@ -33,9 +33,21 @@ def glue(song):
 # -- display parsing / conversion --------------------------------------------
 @pytest.mark.parametrize("s,n", [("-12.0 dB", -12.0), ("-inf dB", float("-inf")), ("C", 0.0),
                                  ("25L", -25.0), ("10R", 10.0), ("1.20 kHz", 1200.0),
-                                 ("200 Hz", 200.0), ("100 %", 100.0), (".1", 0.1)])
+                                 ("200 Hz", 200.0), ("100 %", 100.0), (".1", 0.1),
+                                 ("22.0k", 22000.0), ("1.5k", 1500.0), ("856", 856.0),
+                                 ("59 ms", 59.0), ("15.0 s", 15000.0), ("1.00 ms", 1.0)])
 def test_parse_display(s, n):
     assert ops.parse_display(s) == n
+
+
+def test_time_param_mixing_ms_and_s():
+    """Analog's envelope times show '5 ms' .. '15.0 s': display=60 means 60 ms (UAT-8 bug)."""
+    def fmt(v):
+        ms = 5.0 * 3000 ** v
+        return "%d ms" % ms if ms < 1000 else "%.1f s" % (ms / 1000)
+    p = Param("AEG1 Attack", 0.0, 0.0, 1.0, fmt=fmt)
+    assert ops.parse_display(p.str_for_value(ops.value_for(p, display=60))) == pytest.approx(60, abs=2)
+    assert p.str_for_value(ops.value_for(p, display="2 s")) == "2.0 s"
 
 
 def test_volume_db_and_inf(song):
