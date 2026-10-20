@@ -90,9 +90,9 @@ def test_set_device_param_by_name_and_item():
 
 def test_load_and_delete_effect(fake_live):
     r = run(server.load_effect("master", 0, "Utility"))
-    assert r["results"][0]["changes"][0]["after"] == "Utility at [1]"
-    r = run(server.delete_device("master", 0, [1]))
-    assert [d.name for d in fake_live.song.master_track.devices] == ["Limiter"]
+    assert r["results"][0]["changes"][0]["after"] == "Utility at [2]"
+    r = run(server.delete_device("master", 0, [2]))
+    assert [d.name for d in fake_live.song.master_track.devices] == ["Limiter", "kHs Limiter"]
 
 
 def test_apply_batch_is_one_undo_step(fake_live):

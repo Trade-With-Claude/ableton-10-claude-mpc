@@ -184,3 +184,83 @@ def test_delete_nested_and_shifted_indices(song, loader):
 def test_unicode_track_label(song, loader):
     r = ops.apply(song, [{"op": "mixer", "kind": "track", "index": 3, "solo": True}], loader)
     assert r["results"][0]["target"] == "track 3 'Bässe ✦ Sub'"
+
+
+# -- Phase 5: typographic minus, rack chains, insertion plan -------------------
+@pytest.mark.parametrize("s,n", [("−0.51 dB", -0.51), ("–12.0 dB", -12.0), ("+1.10 dB", 1.1)])
+def test_parse_display_typographic_minus(s, n):
+    assert ops.parse_display(s) == pytest.approx(n)
+
+
+def test_plugin_with_typographic_minus_sets_the_right_value(song, loader):
+    # Phase 4 UAT bug: display -1 on kHs Limiter 'Output gain' landed at -20 dB (the minimum)
+    r = ops.apply(song, [{"op": "param", "kind": "master", "path": [1], "param": "Output gain",
+                          "display": -1}], loader)
+    param = song.master_track.devices[1].parameters[1]
+    assert param.value == pytest.approx(0.475, abs=0.001)
+    assert r["results"][0]["changes"][0]["before"] == "−0.51 dB"
+    assert r["results"][0]["changes"][0]["after"] == "−1.00 dB"
+
+
+@pytest.mark.parametrize("n,position,expected", [
+    (0, None, (None, "default")), (0, 0, (None, "default")),
+    (3, None, (2, "selected_right")), (3, 3, (2, "selected_right")), (3, 9, (2, "selected_right")),
+    (3, 0, (0, "selected_left")), (3, 2, (1, "selected_right")),
+])
+def test_insert_plan(n, position, expected):
+    assert ops.insert_plan(list(range(n)), position) == expected
+
+
+def test_load_into_chain_at_position(song, loader):
+    r = ops.apply(song, [{"op": "load_effect", "kind": "track", "index": 3, "name": "EQ Eight",
+                          "chain": [1, 1], "position": 0}], loader)
+    mid = song.tracks[3].devices[1].chains[1]
+    assert [d.name for d in mid.devices] == ["EQ Eight", "Saturator", "Inner"]
+    assert r["results"][0]["changes"][0]["after"] == "EQ Eight at chain 'Mid' [0]"
+    assert loader.loads == [("Mid", "EQ Eight", 0)]
+
+
+def test_load_into_nested_chain_default_end(song, loader):
+    ops.apply(song, [{"op": "load_effect", "kind": "track", "index": 3, "name": "Utility",
+                      "chain": [1, 1, 1, 0]}], loader)
+    deep = song.tracks[3].devices[1].chains[1].devices[1].chains[0]
+    assert [d.name for d in deep.devices] == ["Utility", "Utility"]
+
+
+@pytest.mark.parametrize("op,msg", [
+    ({"chain": [1, 2]}, "empty chain"),
+    ({"chain": [1, 9]}, "no chain 9"),
+    ({"chain": [0, 0]}, "not a rack"),
+    ({"chain": [1]}, "chain path must be"),
+    ({"chain": [1, 0], "position": 5}, "out of range"),
+])
+def test_load_into_chain_invalid(song, loader, op, msg):
+    from fake_lom import Chain
+    song.tracks[3].devices[1].chains.append(Chain("Empty"))
+    with pytest.raises(ValueError, match=msg):
+        ops.apply(song, [dict({"op": "load_effect", "kind": "track", "index": 3, "name": "Utility"}, **op)],
+                  loader)
+    assert loader.loads == []
+
+
+def test_chain_mixer_in_one_undo_step(song, loader):
+    r = ops.apply(song, [
+        {"op": "chain_mixer", "kind": "track", "index": 3, "chain": [1, 0], "volume_db": -6, "pan": "10L"},
+        {"op": "chain_mixer", "kind": "track", "index": 3, "chain": [1, 1], "mute": True},
+        {"op": "load_effect", "kind": "track", "index": 3, "name": "EQ Eight", "chain": [1, 1], "position": 0},
+    ], loader)
+    assert (song.undo_begins, song.undo_ends) == (1, 1) and "error" not in r
+    assert [(c["what"], c["before"], c["after"]) for c in r["results"][0]["changes"]] == [
+        ("chain 'Sub' volume", "-3.0 dB", "-6.0 dB"), ("chain 'Sub' pan", "C", "10L")]
+    assert r["results"][1]["changes"][0] == {"what": "chain 'Mid' mute", "before": "off", "after": "on"}
+    assert song.tracks[3].devices[1].chains[1].mute is True
+
+
+@pytest.mark.parametrize("op,msg", [
+    ({}, "needs \"chain\""),
+    ({"chain": [1, 0]}, "changes nothing"),
+    ({"chain": [0, 0], "mute": True}, "not a rack"),
+])
+def test_chain_mixer_invalid(song, op, msg):
+    with pytest.raises(ValueError, match=msg):
+        ops.apply(song, [dict({"op": "chain_mixer", "kind": "track", "index": 3}, **op)])

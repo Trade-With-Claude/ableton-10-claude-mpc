@@ -9,8 +9,11 @@ effects needs the browser, so it goes through an injected `loader` with:
 Ops (tracks addressed by kind/index, never by name):
   {"op": "mixer", "kind", "index", "volume_db"|"volume", "pan", "sends": {ret: dB}, "mute", "solo"}
   {"op": "param", "kind", "index", "path", "param": name|index, "value"|"display"}
-  {"op": "load_effect", "kind", "index", "name", "position": None (end) | n}
+  {"op": "load_effect", "kind", "index", "name", "position": None (end) | n,
+   "chain": [rack path..., chain_idx] (optional: load inside that rack chain)}
   {"op": "delete_device", "kind", "index", "path"}
+  {"op": "chain_mixer", "kind", "index", "chain": [rack path..., chain_idx],
+   "volume_db"|"volume", "pan", "mute", "solo"}
 """
 from __future__ import absolute_import
 
@@ -25,12 +28,14 @@ _text = lom._text
 _NUM = re.compile(r"[-+]?(\d+\.?\d*|\.\d+)")
 _PAN = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([LR])\s*$", re.I)
 BISECT_STEPS = 40
+# Some plugins (e.g. kHs) display a typographic minus or an en dash instead of '-'.
+_MINUS = {0x2212: u"-", 0x2013: u"-"}
 
 
 # -- display units <-> raw values ------------------------------------------
 def parse_display(s):
     """Leading number of a display string: '-12.0 dB' -12, '1.20 kHz' 1200, '25L' -25, 'C' 0."""
-    s = _text(s).strip()
+    s = _text(s).strip().translate(_MINUS)
     low = s.lower()
     if low.startswith(u"-inf"):
         return float("-inf")
@@ -145,6 +150,20 @@ def find_param(device, key):
     return subs[0][0]
 
 
+# -- device insertion --------------------------------------------------------------
+def insert_plan(devices, position):
+    """Where Live's browser should insert into `devices` (a track's or a chain's):
+    (index of the device to select | None, insert mode name). `position` None = end."""
+    n = len(devices)
+    if not n:
+        return None, "default"
+    if position is None or position >= n:
+        return n - 1, "selected_right"
+    if position == 0:
+        return 0, "selected_left"
+    return position - 1, "selected_right"
+
+
 # -- planning -------------------------------------------------------------------
 def _label(kind, index, track):
     if kind == "master":
@@ -250,23 +269,62 @@ def _plan_load(op, track, loader):
     if not name:
         raise ValueError(u"load_effect needs a stock effect name")
     loader.check(name)
+    chain_path = op.get("chain")
+    chain = None
+    holder = track
+    if chain_path is not None:
+        chain = holder = lom.resolve_chain(track, chain_path)
+        if not list(chain.devices):
+            raise ValueError(u"can't load into an empty chain yet: add any device to chain '%s' first"
+                             % _text(chain.name))
     position = op.get("position")
     if position is not None:
         position = int(position)
-        if not 0 <= position <= len(list(track.devices)):
-            raise LookupError(u"position %d out of range (0..%d)" % (position, len(list(track.devices))))
+        if not 0 <= position <= len(list(holder.devices)):
+            raise LookupError(u"position %d out of range (0..%d)" % (position, len(list(holder.devices))))
     loaded = []
 
     def write():
-        loaded.append(loader.load(track, name, position))
+        if chain is None:
+            loaded.append(loader.load(track, name, position))
+        else:
+            loaded.append(loader.load(track, name, position, chain=chain))
 
     def read():
         if not loaded:
             return u"-"
-        devices = list(track.devices)
+        devices = list(holder.devices)
         idx = [i for i, d in enumerate(devices) if d == loaded[0]]
-        return u"%s at [%s]" % (_text(loaded[0].name), idx[0] if idx else u"?")
+        where = u"[%s]" % (idx[0] if idx else u"?")
+        if chain is not None:
+            where = u"chain '%s' %s" % (_text(chain.name), where)
+        return u"%s at %s" % (_text(loaded[0].name), where)
     return [(u"load %s" % name, read, write)]
+
+
+def _plan_chain_mixer(op, track):
+    chain_path = op.get("chain")
+    if chain_path is None:
+        raise ValueError(u"chain_mixer needs \"chain\": [rack path..., chain index]")
+    chain = lom.resolve_chain(track, chain_path)
+    label = u"chain '%s'" % _text(chain.name)
+    mixer = getattr(chain, "mixer_device", None)
+    changes = []
+    if "volume" in op or "volume_db" in op or "pan" in op:
+        if mixer is None:
+            raise ValueError(u"%s has no mixer" % label)
+        if "volume" in op or "volume_db" in op:
+            changes.append(_param_change(u"%s volume" % label, mixer.volume,
+                                         value_for(mixer.volume, op.get("volume"), op.get("volume_db"))))
+        if "pan" in op:
+            changes.append(_param_change(u"%s pan" % label, mixer.panning,
+                                         value_for(mixer.panning, display=op["pan"])))
+    for attr in ("mute", "solo"):
+        if attr in op:
+            changes.append(_attr_change(u"%s %s" % (label, attr), chain, attr, op[attr]))
+    if not changes:
+        raise ValueError(u"chain_mixer op changes nothing (give volume_db, pan, mute or solo)")
+    return changes
 
 
 def plan(song, ops, loader=None):
@@ -290,8 +348,11 @@ def plan(song, ops, loader=None):
                 changes = _plan_load(op, track, loader)
             elif name == "delete_device":
                 changes = _plan_delete(op, track)
+            elif name == "chain_mixer":
+                changes = _plan_chain_mixer(op, track)
             else:
-                raise ValueError(u"unknown op %r (mixer|param|load_effect|delete_device)" % (name,))
+                raise ValueError(u"unknown op %r (mixer|param|load_effect|delete_device|chain_mixer)"
+                                 % (name,))
         except Exception as e:
             raise ValueError(u"op %d: %s" % (n, _text(e)))
         planned.append((name, _label(kind, index, track), changes))

@@ -82,6 +82,51 @@ def resolve_device(track, path):
     return device
 
 
+def resolve_chain(track, path):
+    """A rack chain: path = [rack device path..., chain index] (even length)."""
+    if isinstance(path, int):
+        path = [path]
+    path = list(path or [])
+    if len(path) < 2 or len(path) % 2:
+        raise ValueError(u"chain path must be [rack path..., chain index], got %r" % (path,))
+    rack = resolve_device(track, path[:-1])
+    if not getattr(rack, "can_have_chains", False):
+        raise LookupError(u"device '%s' is not a rack (no chains)" % _text(rack.name))
+    chains = list(rack.chains)
+    i = int(path[-1])
+    if not 0 <= i < len(chains):
+        raise LookupError(u"no chain %d in '%s' (have %d)" % (i, _text(rack.name), len(chains)))
+    return chains[i]
+
+
+# -- folding ------------------------------------------------------------------
+def fold_snapshot(track):
+    """[(group, fold_state)] for `track` (if it is a group) and every ancestor group.
+    Selecting a track in Live unfolds its groups; restore_folds() puts them back."""
+    out = []
+    seen = 0
+    t = track
+    while t is not None and seen < 32:
+        if getattr(t, "is_foldable", False):
+            try:
+                out.append((t, t.fold_state))
+            except Exception:
+                pass
+        t = getattr(t, "group_track", None)
+        seen += 1
+    return out
+
+
+def restore_folds(snapshot):
+    # outermost group first: folding a parent before its child is harmless either way
+    for group, state in reversed(snapshot):
+        try:
+            if group.fold_state != state:
+                group.fold_state = state
+        except Exception:
+            pass
+
+
 # -- values -------------------------------------------------------------------
 def _display(param, value=None):
     try:
@@ -135,18 +180,27 @@ def serialize_device(device, path, depth=0):
             out["chains_truncated"] = True
         else:
             out["chains"] = [
-                {
-                    "index": ci,
-                    "name": _text(chain.name),
-                    "mute": bool(getattr(chain, "mute", False)),
-                    "solo": bool(getattr(chain, "solo", False)),
-                    "devices": [
-                        serialize_device(d, list(path) + [ci, di], depth + 1)
-                        for di, d in enumerate(chain.devices)
-                    ],
-                }
+                _serialize_chain(chain, ci, path, depth)
                 for ci, chain in enumerate(device.chains)
             ]
+    return out
+
+
+def _serialize_chain(chain, ci, path, depth):
+    out = {
+        "index": ci,
+        "name": _text(chain.name),
+        "mute": bool(getattr(chain, "mute", False)),
+        "solo": bool(getattr(chain, "solo", False)),
+    }
+    try:
+        mixer = chain.mixer_device
+        out["volume"] = _param_value(mixer.volume)
+        out["pan"] = _param_value(mixer.panning)
+    except Exception:
+        pass
+    out["devices"] = [serialize_device(d, list(path) + [ci, di], depth + 1)
+                      for di, d in enumerate(chain.devices)]
     return out
 
 

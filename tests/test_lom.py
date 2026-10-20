@@ -100,3 +100,38 @@ def test_bad_addresses(song, kind, index, path, msg):
     with pytest.raises((LookupError, ValueError), match=msg.replace("(", r"\(").replace(")", r"\)")):
         track = lom.resolve_track(song, kind, index)
         lom.resolve_device(track, path)
+
+
+# -- Phase 5: chain mixer, chain addressing, fold restore -----------------------
+def test_chains_carry_volume_and_pan():
+    s = lom.serialize_session(dnb_song())
+    sub = s["tracks"][3]["devices"][1]["chains"][0]
+    assert sub["volume"]["display"] == "-3.0 dB" and sub["pan"]["display"] == "C"
+
+
+def test_chain_without_mixer_omits_volume():
+    song = dnb_song()
+    del song.tracks[3].devices[1].chains[0].mixer_device
+    sub = lom.serialize_session(song)["tracks"][3]["devices"][1]["chains"][0]
+    assert "volume" not in sub and "pan" not in sub and sub["devices"]
+
+
+def test_resolve_chain_nested():
+    song = dnb_song()
+    assert lom.resolve_chain(song.tracks[3], [1, 1, 1, 0]).name == "Deep"
+
+
+def test_fold_snapshot_restores_target_and_ancestors():
+    song = dnb_song()
+    drums, kick = song.tracks[0], song.tracks[1]
+    outer = drums.group_track = type(drums)("OUTER", foldable=True)
+    drums.fold_state, outer.fold_state = 1, 1
+    snap = lom.fold_snapshot(kick)  # Kick itself isn't foldable; DRUMS and OUTER are
+    assert [(g.name, st) for g, st in snap] == [("DRUMS", 1), ("OUTER", 1)]
+    drums.fold_state = outer.fold_state = 0  # Live unfolds them when Kick gets selected
+    lom.restore_folds(snap)
+    assert (drums.fold_state, outer.fold_state) == (1, 1)
+    snap = lom.fold_snapshot(drums)  # a folded group as the load target
+    drums.fold_state = 0
+    lom.restore_folds(snap)
+    assert drums.fold_state == 1

@@ -85,12 +85,19 @@ class DeviceList:
         del self.devices[i]
 
 
+class ChainMixer:
+    def __init__(self, vol_db=0.0, pan=0.0):
+        self.volume = Param("Chain Volume", vol_value(vol_db), 0.0, 1.0, fmt=vol_fmt)
+        self.panning = Param("Chain Pan", pan, -1.0, 1.0, fmt=pan_fmt)
+
+
 class Chain(DeviceList):
-    def __init__(self, name, devices=(), mute=False, solo=False):
+    def __init__(self, name, devices=(), mute=False, solo=False, vol_db=0.0):
         self.name = name
         self.devices = list(devices)
         self.mute = mute
         self.solo = solo
+        self.mixer_device = ChainMixer(vol_db)
 
 
 class Mixer:
@@ -152,14 +159,23 @@ class FakeLoader:
         if name.lower() not in self.STOCK:
             raise LookupError("stock effect not found in browser: %s" % name)
 
-    def load(self, track, name, position):
+    def load(self, track, name, position, chain=None):
         if self.fail:
             raise RuntimeError("browser exploded")
+        holder = chain if chain is not None else track
         dev = Device(name, self.STOCK[name.lower()])
-        pos = len(track.devices) if position is None else position
-        track.devices.insert(pos, dev)
-        self.loads.append((track.name, name, pos))
+        pos = len(holder.devices) if position is None else position
+        holder.devices.insert(pos, dev)
+        self.loads.append((holder.name, name, pos))
         return dev
+
+
+def khs_output_gain(value=0.48714131116867065):
+    """A kHs-Limiter-like plugin param: raw 0..1 -> -20..+20 dB, shown with a U+2212 minus."""
+    def fmt(v):
+        d = -20.0 + 40.0 * v
+        return ("\u2212%.2f dB" % -d) if d < 0 else ("+%.2f dB" % d)
+    return Param("Output gain", value, 0.0, 1.0, fmt=fmt)
 
 
 def dnb_song():
@@ -176,7 +192,7 @@ def dnb_song():
     kick = Track("Kick", group=drums, sends=(-70.0, -70.0), output="DRUMS")
     snare = Track("Snare", group=drums, sends=(-12.0, -70.0), output="DRUMS")
     rack = Device("Bass Rack", "AudioEffectGroupDevice", chains=[
-        Chain("Sub", [Device("EQ Eight", "Eq8", [Param("1 Frequency A", 0.3)])]),
+        Chain("Sub", [Device("EQ Eight", "Eq8", [Param("1 Frequency A", 0.3)])], vol_db=-3.0),
         Chain("Mid", [Device("Saturator", "Saturator", [Param("Drive", 6.0, 0.0, 36.0, fmt=db)]),
                       Device("Inner", "AudioEffectGroupDevice",
                              chains=[Chain("Deep", [Device("Utility", "StereoGain")])])]),
@@ -187,6 +203,7 @@ def dnb_song():
                   devices=[Device("Reverb", "Reverb")])
     ret_b = Track("B-Delay", sends=(-70.0, -70.0), armable=False)
     master = Track("Master", armable=False, meters=(0.9, 0.95),
-                   devices=[Device("Limiter", "Limiter", [Param("Ceiling", -0.3, -24.0, 0.0, fmt=db)])])
+                   devices=[Device("Limiter", "Limiter", [Param("Ceiling", -0.3, -24.0, 0.0, fmt=db)]),
+                            Device("kHs Limiter", "PluginDevice", [khs_output_gain()])])
     midi_fx = Track("MIDI only", midi=True, audio_out=False)
     return Song([drums, kick, snare, bass, midi_fx], [ret_a, ret_b], master)

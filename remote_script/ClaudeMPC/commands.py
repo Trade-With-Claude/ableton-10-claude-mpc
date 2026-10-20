@@ -9,7 +9,7 @@ import Live
 from . import lom
 from . import ops as batch
 
-SCRIPT_VERSION = "0.3.0"
+SCRIPT_VERSION = "0.4.0"
 
 
 class Commands(object):
@@ -22,6 +22,7 @@ class Commands(object):
             "get_device_params": self.get_device_params,
             "get_meters": self.get_meters,
             "apply": self.apply,
+            "transport": self.transport,
         }
 
     @property
@@ -45,6 +46,7 @@ class Commands(object):
             "live_version": "%d.%d.%d" % (app.get_major_version(), app.get_minor_version(),
                                           app.get_bugfix_version()),
             "tempo": self.song.tempo,
+            "is_playing": bool(self.song.is_playing),
             "script_version": SCRIPT_VERSION,
         }
 
@@ -65,6 +67,14 @@ class Commands(object):
 
     def get_meters(self):
         return lom.read_meters(self.song)
+
+    def transport(self, play):
+        """Start (from the insert marker, looping if the loop is on) or stop playback."""
+        if play:
+            self.song.start_playing()
+        else:
+            self.song.stop_playing()
+        return {"is_playing": bool(self.song.is_playing)}
 
     def apply(self, ops):
         t0 = time.time()
@@ -101,29 +111,25 @@ class EffectLoader(object):
             raise LookupError(u"stock effect not found in browser: %s (have: %s)"
                               % (name, u", ".join(sorted(self._cache or {}))))
 
-    def load(self, track, name, position=None):
+    def load(self, track, name, position=None, chain=None):
         song = self.commands.song
         item = self._find(name)
         if item is None:
             raise LookupError(u"stock effect not found in browser: %s" % name)
-        before = list(track.devices)
+        holder = chain if chain is not None else track
+        before = list(holder.devices)
+        before_track = list(track.devices)
+        neighbour_i, mode_name = batch.insert_plan(before, position)
         modes = Live.Track.DeviceInsertMode
-        mode = modes.default
-        neighbour = None
-        if before:
-            if position is None or position >= len(before):
-                neighbour, mode = before[-1], modes.selected_right
-            elif position == 0:
-                neighbour, mode = before[0], modes.selected_left
-            else:
-                neighbour, mode = before[position - 1], modes.selected_right
+        mode = getattr(modes, mode_name)
+        folds = lom.fold_snapshot(track)
         prev_track = song.view.selected_track
         prev_device = prev_track.view.selected_device if prev_track is not None else None
         browser = self.commands.app.browser
         try:
             song.view.selected_track = track
-            if neighbour is not None:
-                song.view.select_device(neighbour)
+            if neighbour_i is not None:
+                song.view.select_device(before[neighbour_i])
             browser.hotswap_target = None
             track.view.device_insert_mode = mode
             browser.load_item(item)
@@ -138,7 +144,17 @@ class EffectLoader(object):
                     song.view.select_device(prev_device)
                 except Exception:
                     pass
-        new = [d for d in track.devices if d not in before]
-        if not new:
-            raise RuntimeError(u"load_item did not add %s to %s" % (name, unicode(track.name)))
-        return new[0]
+            lom.restore_folds(folds)
+        new = [d for d in holder.devices if d not in before]
+        if new:
+            return new[0]
+        if chain is not None:
+            # Live put it somewhere else on the track: remove it rather than leave it misplaced
+            stray = [i for i, d in enumerate(track.devices) if d not in before_track]
+            for i in reversed(stray):
+                track.delete_device(i)
+            if stray:
+                raise RuntimeError(u"Live loaded %s outside chain '%s' (removed it)"
+                                   % (name, unicode(chain.name)))
+            raise RuntimeError(u"load_item did not add %s to chain '%s'" % (name, unicode(chain.name)))
+        raise RuntimeError(u"load_item did not add %s to %s" % (name, unicode(track.name)))
