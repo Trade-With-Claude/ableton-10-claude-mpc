@@ -87,11 +87,12 @@
   - [ ] R1: Reconnect/timeout handling; graceful errors when Live is closed or the surface isn't selected
   - [ ] R2: README (install, Control Surface slot, BlackHole setup) + MIT attribution to ahujasid
   - [ ] R3: Full UAT pass in a real session; spectrum-advisor made public
-  - [ ] R4: Phase 8 follow-ups: `analyze_sample` arp/loop mode (onsets + harmonic salience, octave check), loop tempo relation (half/double time → scale the clip), clip-edit command (scale/replace/transpose notes)
+  - [ ] R1b: Write commands are never resent after a lost reply; installed vs repo Remote Script version check in `ping`
 - **Success Criteria**: A fresh install by following the README works first time.
-- **Status**: pending
+- **Status**: planned (09-01-PLAN.md). R4 (Phase 8 follow-ups) moved to future ideas (Dorian, 2026-10-21: "good as it is for V1")
 
 ## Future ideas (not scheduled)
+- **Sound reproduction follow-ups (from Phase 8, moved out of v1 on 2026-10-21).** An `analyze_sample` arp/loop mode (onsets + harmonic salience, octave check). The loop's tempo relation (half/double time → scale the clip). A clip-edit command (scale/replace/transpose notes). Adding a clip to an existing track.
 - **Kick designer, "Kick 3"-style (Dorian, 2026-10-20).** Make kicks simply: a drawn pitch curve and amp curve, a click/transient layer, sub tuned to the track's key, drive/saturation and EQ.
   - **Why:** reproducing the track-35 kick with Wavetable + Drum Buss sounded like a tutorial kick, then "trop boomy". Synth layers in Live 10 can't follow a measured pitch curve closely, and racks/chains can't be created from the script.
   - **Option A, offline renderer:** a Python renderer (numpy) that draws the kick from curves. It could start from `analyze_sample`-style measurements of a reference kick (pitch 165 → 62 Hz over ~100 ms, length, click band) and write a WAV into the User Library for Simpler / Drum Rack.

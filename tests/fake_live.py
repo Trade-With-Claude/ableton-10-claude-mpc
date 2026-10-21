@@ -5,6 +5,7 @@ import pathlib
 import socket
 import sys
 import threading
+import time
 
 from fake_lom import FakeLoader, dnb_song
 
@@ -24,6 +25,7 @@ class FakeLive:
                                "script_version": "fake"},
             "transport": self._transport,
             "echo": lambda p: p,
+            "slow": lambda p: time.sleep(p.get("s", 1.0)) or {},
             "get_session": lambda p: lom.serialize_session(self.song),
             "get_device_params": self._device_params,
             "get_meters": self._meters,
@@ -49,6 +51,9 @@ class FakeLive:
         self._srv.bind(("127.0.0.1", 0))
         self._srv.listen(4)
         self.port = self._srv.getsockname()[1]
+        self.received: list[str] = []  # every command that reached the fake
+        self.drop_once: set[str] = set()  # close the connection instead of replying, once
+        self._conns: list[socket.socket] = []
         self.raw_reply: bytes | None = None  # if set, sent verbatim instead of a real reply
         self._stop = False
         self._thread = threading.Thread(target=self._serve, daemon=True)
@@ -113,6 +118,10 @@ class FakeLive:
                         self._send(conn, self.raw_reply)
                         continue
                     req = json.loads(line)
+                    self.received.append(req["cmd"])
+                    if req["cmd"] in self.drop_once:
+                        self.drop_once.discard(req["cmd"])
+                        return  # ran (maybe), reply lost
                     h = self.handlers.get(req["cmd"])
                     if h is None:
                         resp = {"id": req["id"], "ok": False, "error": "unknown command: " + req["cmd"]}
@@ -129,7 +138,17 @@ class FakeLive:
                 conn, _ = self._srv.accept()
             except OSError:
                 return
+            self._conns.append(conn)
             threading.Thread(target=self._handle, args=(conn,), daemon=True).start()
+
+    def drop_connections(self) -> None:
+        """Close every client connection server-side (Live quit / surface re-selected)."""
+        for c in self._conns:
+            try:
+                c.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+        self._conns.clear()
 
     def close(self) -> None:
         self._stop = True

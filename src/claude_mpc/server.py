@@ -2,6 +2,8 @@
 
 import asyncio
 import os
+import pathlib
+import re
 import time
 
 from mcp.server.mcpserver import MCPServer
@@ -14,6 +16,21 @@ from .protocol import DEFAULT_PORT, LiveError
 PREROLL_S = 1.0  # after autoplay starts Live, let the section settle before recording
 RECORD_POLL_S = 0.25  # record_automation: status poll interval
 RECORD_SLACK_S = 5.0  # record_automation: allowed time beyond the take's expected length
+
+REMOTE_SCRIPT = pathlib.Path(__file__).resolve().parents[2] / "remote_script" / "ClaudeMPC"
+
+
+def _expected_script_version() -> str | None:
+    """SCRIPT_VERSION of the Remote Script in this repo (None outside a checkout)."""
+    try:
+        text = (REMOTE_SCRIPT / "commands.py").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r'^SCRIPT_VERSION = "([^"]+)"', text, re.M)
+    return m.group(1) if m else None
+
+
+EXPECTED_SCRIPT_VERSION = _expected_script_version()
 
 mcp = MCPServer("claude-mpc")
 live = LiveClient(port=int(os.environ.get("CLAUDE_MPC_PORT", DEFAULT_PORT)))
@@ -32,6 +49,8 @@ async def _call(cmd: str, params: dict | None = None):
         return await asyncio.to_thread(live.request, cmd, params)
     except LiveError as exc:
         raise ToolError(str(exc)) from exc
+    except (ConnectionError, TimeoutError) as exc:
+        raise ToolError(str(exc)) from exc  # the client's messages say what to do
     except OSError as exc:
         raise ToolError(
             f"Cannot reach Live ({exc}). Is Live open with ClaudeMPC selected as a Control Surface?"
@@ -41,10 +60,19 @@ async def _call(cmd: str, params: dict | None = None):
 @mcp.tool()
 async def ping() -> dict:
     """Check the connection to Ableton Live. Returns Live version, tempo, is_playing,
-    position_bar (playhead / insert marker in 1-based 4/4 bars), recorder_state and round-trip time."""
+    position_bar (playhead / insert marker in 1-based 4/4 bars), recorder_state and round-trip time.
+    `warning` is set when the Remote Script running in Live differs from this repo's
+    (expected_script_version): tell the user to run scripts/install.sh and restart Live."""
     t0 = time.perf_counter()
     result = await _call("ping")
     result["rtt_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    if EXPECTED_SCRIPT_VERSION:
+        result["expected_script_version"] = EXPECTED_SCRIPT_VERSION
+        if result.get("script_version") != EXPECTED_SCRIPT_VERSION:
+            result["warning"] = (
+                f"Live runs Remote Script {result.get('script_version')}, this repo has "
+                f"{EXPECTED_SCRIPT_VERSION}: run scripts/install.sh, then restart Live."
+            )
     return result
 
 

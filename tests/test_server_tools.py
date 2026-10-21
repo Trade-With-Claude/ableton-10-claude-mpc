@@ -24,6 +24,18 @@ def test_ping_has_rtt():
     assert r["live_version"] == "10.1.43" and r["rtt_ms"] >= 0
 
 
+def test_ping_version_warning(monkeypatch):
+    monkeypatch.setattr(server, "EXPECTED_SCRIPT_VERSION", "0.6.1")
+    r = run(server.ping())  # fake Live reports "fake"
+    assert r["expected_script_version"] == "0.6.1" and "install.sh" in r["warning"]
+    monkeypatch.setattr(server, "EXPECTED_SCRIPT_VERSION", "fake")
+    assert "warning" not in run(server.ping())
+
+
+def test_expected_script_version_read_from_repo():
+    assert server.EXPECTED_SCRIPT_VERSION == "0.6.1"
+
+
 def test_get_session():
     s = run(server.get_session())
     assert [t["name"] for t in s["tracks"]][:4] == ["DRUMS", "Kick", "Snare", "Bässe ✦ Sub"]

@@ -1,4 +1,5 @@
 import socket
+import time
 
 import pytest
 
@@ -49,8 +50,37 @@ def test_reconnects_after_server_restart():
 
 def test_connection_refused_message():
     c = LiveClient(port=1, timeout=0.5)
-    with pytest.raises(ConnectionError, match="ClaudeMPC control surface"):
+    with pytest.raises(ConnectionError, match="ClaudeMPC control surface selected"):
         c.request("ping")
+
+
+def test_write_not_resent_after_lost_reply(fake_live, client):
+    fake_live.drop_once.add("apply")
+    with pytest.raises(ConnectionError, match="may or may not have been applied"):
+        client.request("apply", {"ops": []})
+    assert fake_live.received.count("apply") == 1
+    assert client.request("ping")  # next call reconnects
+
+
+def test_read_retried_after_lost_reply(fake_live, client):
+    fake_live.drop_once.add("get_session")
+    assert client.request("get_session")["tracks"]
+    assert fake_live.received.count("get_session") == 2
+
+
+def test_dead_socket_detected_before_send(fake_live, client):
+    assert client.request("ping")
+    fake_live.drop_connections()
+    time.sleep(0.05)
+    assert client.request("echo", {"x": 1}) == {"x": 1}  # not read-only: would fail if sent on the dead socket
+    assert fake_live.received.count("echo") == 1
+
+
+def test_timeout_message(fake_live):
+    c = LiveClient(port=fake_live.port, timeout=0.3)
+    with pytest.raises(TimeoutError, match="blocked by a dialog"):
+        c.request("slow", {"s": 1.0})
+    c.close()
 
 
 def test_server_imports():

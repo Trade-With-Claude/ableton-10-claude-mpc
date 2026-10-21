@@ -1,10 +1,10 @@
 # STATE
 
 ## Current Position
-- **Phase**: 8 (Sound Reproduction)
-- **Plan**: created (08-01-PLAN.md)
-- **Task**: 3/3
-- **Status**: complete
+- **Phase**: 9 (Polish & Release)
+- **Plan**: created (09-01-PLAN.md)
+- **Task**: 0/3
+- **Status**: planned
 
 ## Progress
 <!-- Updated after each /bolt:close -->
@@ -32,9 +32,11 @@
 - Sound reproduction uses Wavetable by default (Dorian); clips land in Session View (tell him Cmd+C / Tab / Cmd+V)
 - basic-pitch ruled out (py3.13 / gliding leads); pyin for monophonic, onset+salience needed for arps/loops
 
+- Phase 9 = clean-up only; Phase 8 follow-ups out of v1 (Dorian, 2026-10-21)
+
 ## Blockers
 <!-- Anything preventing progress -->
 
 ## Next Action
 <!-- Exactly ONE suggested next action -->
-Run `/bolt:plan 9`
+Run `/bolt:build 9`
