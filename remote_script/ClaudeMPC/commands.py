@@ -135,6 +135,7 @@ class EffectLoader(object):
     `browser.load_item` loads onto the selected track, next to the selected device, so:
     select the target track and its neighbour device, clear hotswap, set the insert
     mode, load, then restore the user's track/device selection and the insert mode.
+    Approach after ahujasid/ableton-mcp (MIT); written from scratch for Live 10.
     """
 
     def __init__(self, commands):

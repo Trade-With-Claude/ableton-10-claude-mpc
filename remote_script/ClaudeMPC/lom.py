@@ -7,6 +7,8 @@ passed in, so it can be unit-tested outside Live with duck-typed fakes.
 Addressing:
   track   {"kind": "track|return|master", "index": n}   (index ignored for master)
   device  path = [dev] or [rack, chain, dev, chain, dev, ...] inside that track
+
+Serialization approach after ahujasid/ableton-mcp (MIT); written from scratch for Live 10.
 """
 from __future__ import absolute_import
 

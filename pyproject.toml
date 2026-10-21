@@ -3,11 +3,12 @@ name = "claude-mpc"
 version = "0.1.0"
 description = "MCP bridge between Claude Code and Ableton Live 10"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
 dependencies = ["mcp>=2.3,<3", "spectrum-advisor"]
 
 [tool.uv.sources]
-spectrum-advisor = { path = "../spectrum-advisor", editable = true }
+spectrum-advisor = { git = "https://github.com/Trade-With-Claude/spectrum-advisor", rev = "2b45287e20a80df34711c470e8b31cf6728ae712" }
 
 [project.scripts]
 claude-mpc = "claude_mpc.server:main"
